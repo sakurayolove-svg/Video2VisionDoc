@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>示例：加州理工学院数学物理学家谈AI的"最难题" — 视觉文档</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    line-height: 1.7;
+  }
+  .header {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    padding: 40px 20px;
+    text-align: center;
+    border-bottom: 2px solid #334155;
+  }
+  .header h1 { font-size: 1.9rem; color: #f8fafc; margin-bottom: 12px; }
+  .header .meta { color: #94a3b8; font-size: 0.95rem; }
+  .header .meta span { margin: 0 10px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 30px 20px 60px; }
+  .slide-block { display: flex; gap: 28px; margin-bottom: 50px; align-items: flex-start; }
+  .timestamp { flex-shrink: 0; width: 70px; text-align: right; font-family: "Courier New", monospace; font-size: 0.9rem; color: #60a5fa; font-weight: bold; padding-top: 12px; }
+  .ppt-frame { flex-shrink: 0; width: 420px; min-height: 200px; background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; position: relative; box-shadow: 0 8px 24px rgba(0,0,0,0.35); display: flex; flex-direction: column; justify-content: center; }
+  .ppt-frame .slide-num { position: absolute; top: 10px; right: 14px; font-size: 0.75rem; color: #64748b; }
+  .ppt-frame h3 { font-size: 1.15rem; color: #f8fafc; margin-bottom: 14px; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }
+  .ppt-frame .ppt-content { font-size: 0.88rem; color: #cbd5e1; }
+  .ppt-frame .ppt-content ul { padding-left: 18px; }
+  .ppt-frame .ppt-content li { margin-bottom: 8px; }
+  .ppt-frame .formula { background: #0f172a; padding: 10px 14px; border-radius: 6px; font-family: "Courier New", monospace; color: #fbbf24; margin: 10px 0; font-size: 0.85rem; border-left: 3px solid #f59e0b; }
+  .ppt-frame .diagram { background: #0f172a; border: 1px dashed #475569; border-radius: 6px; padding: 14px; margin-top: 10px; text-align: center; color: #94a3b8; font-size: 0.8rem; }
+  .transcript { flex: 1; background: #1e293b; border-left: 4px solid #3b82f6; border-radius: 0 10px 10px 0; padding: 22px 24px; font-size: 0.95rem; color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+  .transcript .label { font-size: 0.75rem; color: #60a5fa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: bold; }
+  .transcript p { margin-bottom: 10px; }
+  .transcript .term { color: #fbbf24; font-weight: 600; }
+  .transcript .note { background: #0f172a; padding: 10px 14px; border-radius: 6px; font-size: 0.85rem; color: #94a3b8; margin-top: 10px; border-left: 3px solid #10b981; }
+  .divider { height: 1px; background: linear-gradient(90deg, transparent, #334155, transparent); margin: 40px 0; }
+  .section-title { text-align: center; font-size: 1.3rem; color: #60a5fa; margin: 50px 0 30px; letter-spacing: 2px; }
+  @media (max-width: 900px) { .slide-block { flex-direction: column; } .ppt-frame { width: 100%; } .timestamp { text-align: left; width: auto; } }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>面向长时程稀疏奖励任务的人工智能工具</h1>
+  <div class="meta">
+    <span>演讲者：Sergei Gukov</span>
+    <span>加州理工学院数学物理学教授</span>
+    <span>SAIR Foundation Science × AI Summit 2026</span>
+  </div>
+  <div class="meta" style="margin-top:8px; font-size:0.85rem;">
+    基于 NeurIPS 2025 论文及公开学术资料重构 | 由 Video2VisionDoc 自动生成
+  </div>
+</div>
+<div class="container">
+
+<div class="section-title">▎ 开场与问题引入</div>
+
+<div class="slide-block">
+  <div class="timestamp">00:00</div>
+  <div class="ppt-frame">
+    <div class="slide-num">Slide 1</div>
+    <h3>AI 的"最难题"</h3>
+    <div class="ppt-content">
+      <ul>
+        <li>从拓扑量子场论到强化学习</li>
+        <li>长时程稀疏奖励（Long-horizon, sparse-reward）</li>
+        <li>案例：Andrews–Curtis 猜想</li>
+        <li>Math + AI = AGI ?</li>
+      </ul>
+    </div>
+  </div>
+  <div class="transcript">
+    <div class="label">中文讲解</div>
+    <p>大家好，我是 Sergei Gukov，加州理工的数学物理教授。我过去二十年的主业是<span class="term">拓扑量子场论（TQFT）</span>、<span class="term">纽结理论（Knot Theory）</span>和<span class="term">范畴化（Categorification）</span>。</p>
+    <p>但过去几年，我开始做一件让同事们都惊讶的事：写神经网络代码。最初我只是想证明 AI 对纯数学没用——结果我把自己说服了，反而成了一个 believer。</p>
+    <p>今天我想谈的不是某个具体工程技巧，而是 AI 领域一个根本性的瓶颈，我称之为<span class="term">"最难题"</span>——<span class="term">长时程稀疏奖励任务（long-horizon, sparse-reward tasks）</span>。</p>
+  </div>
+</div>
+
+<div class="slide-block">
+  <div class="timestamp">02:10</div>
+  <div class="ppt-frame">
+    <div class="slide-num">Slide 2</div>
+    <h3>稀疏奖励：一个直观类比</h3>
+    <div class="ppt-content">
+      <ul>
+        <li>ChatGPT：每步都有监督（下一个词预测）</li>
+        <li>围棋：100 步后才知输赢</li>
+        <li>数学证明：百万步后才知是否成功</li>
+        <li>科学研究：数月甚至数年才有一个反馈</li>
+      </ul>
+      <div class="diagram">[示意图：信号密度随任务类型递减]</div>
+    </div>
+  </div>
+  <div class="transcript">
+    <div class="label">中文讲解</div>
+    <p>大多数人对 AI 的印象来自 ChatGPT。它的训练方式是<span class="term">"下一个词预测"（next-token prediction）</span>——每走一步，立刻知道对还是错。信号极其密集。</p>
+    <p>但现实世界完全不同。想象你训练 AI 下围棋：它走了一百步，最后才输赢见分晓。中间九十九步，它几乎得不到任何反馈，只能瞎蒙。</p>
+    <p>再想象<span class="term">数学研究</span>：你提出假设、设计实验、收集数据、分析结果，可能要数月才能验证假设是否成立。这就是<span class="term">长时程稀疏奖励</span>——它是当前 AI 从"对话智能"走向"自主智能"必须跨越的一道坎。</p>
+    <div class="note">注：稀疏奖励（Sparse Reward）指智能体在绝大多数状态下获得的反馈为零或常数，仅在极少数目标状态获得非零奖励。</div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section-title">▎ 案例研究：Andrews–Curtis 猜想</div>
+
+<div class="slide-block">
+  <div class="timestamp">05:30</div>
+  <div class="ppt-frame">
+    <div class="slide-num">Slide 3</div>
+    <h3>为什么选择数学问题？</h3>
+    <div class="ppt-content">
+      <ul>
+        <li>动作空间小：仅 12 个 AC′ 基本移动</li>
+        <li>状态空间无限：群表示长度可任意增长</li>
+        <li>难度分层：从 trivial 到超指数级困难</li>
+        <li>奖励极度稀疏：只有最终平凡化得 +1</li>
+      </ul>
+    </div>
+  </div>
+  <div class="transcript">
+    <div class="label">中文讲解</div>
+    <p>为了研究稀疏奖励，我们需要一个"干净"的试验场。电子游戏太嘈杂，机器人太昂贵。我们选择了<span class="term">Andrews–Curtis 猜想（AC 猜想）</span>——一个来自<span class="term">组合群论</span>的六十余年未决问题。</p>
+    <p>它的美妙之处在于：动作空间极小——只有 12 个基本移动（AC′ moves）；但状态空间是<span class="term">无限</span>的，因为群表示的长度可以无限增长。</p>
+    <p>更关键的是，这些问题自带<span class="term">难度谱系</span>：有些 trivial（平凡），有些则需要超指数级的搜索量才能解决。这给了我们一个天然的"硬度标尺"来测试 RL 智能体的极限。</p>
+  </div>
+</div>
+
+<div class="slide-block">
+  <div class="timestamp">08:15</div>
+  <div class="ppt-frame">
+    <div class="slide-num">Slide 4</div>
+    <h3>AC 移动的定义</h3>
+    <div class="ppt-content">
+      <p>给定群表示 ⟨x, y | r₁, r₂⟩，允许三种基本操作：</p>
+      <div class="formula">
+        1. 替换：rᵢ → rᵢrⱼ (i≠j)<br>
+        2. 取逆：rᵢ → rᵢ⁻¹<br>
+        3. 共轭：rᵢ → xⱼ^{±1} rᵢ xⱼ^{∓1}
+      </div>
+      <p>目标：通过有限步操作，将表示变为平凡表示 ⟨x, y | x, y⟩。</p>
+    </div>
+  </div>
+  <div class="transcript">
+    <div class="label">中文讲解</div>
+    <p>让我快速定义 AC 移动。你有一个群表示，包含两个生成元 x, y 和两个关系子 r₁, r₂。你可以做三种操作：</p>
+    <p>第一，<span class="term">替换</span>：把一个关系子替换成它和另一个关系子的乘积；第二，<span class="term">取逆</span>；第三，<span class="term">共轭</span>——用生成元去"包裹"一个关系子。</p>
+    <p>问题是：给定一个混乱的表示，你能否通过有限次这样的操作，把它还原成最简的平凡表示？这就像问：你能否把一个打乱的超级魔方，用规定的几种手法还原？</p>
+    <div class="note">注：AC 猜想断言所有"应该平凡"的表示确实都可以被平凡化，但至今未被证明或否定。</div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section-title">▎ 核心方法：Supermoves 与拓扑难度</div>
+
+<div class="slide-block">
+  <div class="timestamp">19:00</div>
+  <div class="ppt-frame">
+    <div class="slide-num">Slide 5</div>
+    <h3>Supermoves：动态动作空间</h3>
+    <div class="ppt-content">
+      <ul>
+        <li>观察：成功路径中存在重复子序列</li>
+        <li>将这些子序列封装为新的"超级动作"</li>
+        <li>逐步解锁（unmask）更复杂的 supermoves</li>
+        <li>每 10^N 个 epoch 扩展一次动作空间</li>
+        <li>每次扩展比例控制在 5–15%</li>
+      </ul>
+      <div class="diagram">[示意图：基础动作 → 复合动作 → 超级动作，层级递增]</div>
+    </div>
+  </div>
+  <div class="transcript">
+    <div class="label">中文讲解</div>
+    <p>我们的核心创新叫做 <span class="term">Supermoves（超级动作）</span>。思路很简单：观察智能体已经找到的成功路径，你会发现某些子序列反复出现。</p>
+    <p>为什么不把这些子序列直接封装成一个新的、更大的动作呢？比如，原来你需要连续按 50 次基本按钮才能打开一扇门；现在我们直接给你一个"开门"按钮。</p>
+    <p>具体实现上，我们采用<span class="term">动态动作空间</span>：初始时只保留 12 个基本动作，其他动作被 mask 掉。每隔一定训练周期，我们从当前最难的已解决实例中提取成功子序列，作为新的 supermoves 解锁。每次只扩展 5% 到 15%，保证训练的连续性。</p>
+    <div class="note">注：这与层次化强化学习（Hierarchical RL）中的 options 和 compound actions 密切相关，但我们的 supermoves 是自适应生成的，而非预设。</div>
+  </div>
+</div>
+
+<div class="slide-block">
+  <div class="timestamp">24:30</div>
+  <div class="ppt-frame">
+    <div class="slide-num">Slide 6</div>
+    <h3>拓扑难度度量</h3>
+    <div class="ppt-content">
+      <ul>
+        <li>构造 AC 图 Γ：节点为表示，边为 AC 移动</li>
+        <li>Γₖ：长度 ≤ k 的诱导子图</li>
+        <li>追踪连通分量的 birth 与 death</li>
+        <li>硬度 = 所有 (birth, death) 对的集合</li>
+      </ul>
+      <div class="formula">
+        若分量生于 k₁，灭于 k₂：<br>
+        贡献硬度 = (k₂ − k₁)<br>
+        整体硬度 = multiset{(birth, death)}
+      </div>
+      <p>这等价于持久同调（Persistent Homology）中的 barcode。</p>
+    </div>
+  </div>
+  <div class="transcript">
+    <div class="label">中文讲解</div>
+    <p>现在让我展示数学如何反哺 AI。我们定义了一个<span class="term">拓扑难度度量（topological hardness measure）</span>。</p>
+    <p>想象把所有可能的群表示作为节点，把所有 AC 移动作为边，构成一张巨大的图 <span class="term">Γ</span>。我们只看长度不超过 k 的表示，得到子图 <span class="term">Γₖ</span>。</p>
+    <p>随着 k 增大，新的连通分量不断<span class="term">诞生（birth）</span>，旧的不断<span class="term">消亡（death）</span>。记录每一对 (birth, death)，你就得到了一个多重集合——它恰好就是<span class="term">持久同调（Persistent Homology）</span>中的 barcode。</p>
+    <p>这个度量不依赖于任何具体的 RL 算法，它是问题本身的<span class="term">内禀属性</span>。但它能精确预测哪些问题对当前的智能体来说是"硬"的。</p>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section-title">▎ 更广泛的启示与结论</div>
+
+<div class="slide-block">
+  <div class="timestamp">36:00</div>
+  <div class="ppt-frame">
+    <div class="slide-num">Slide 7</div>
+    <h3>从数学到现实世界</h3>
+    <div class="ppt-content">
+      <ul>
+        <li>当前 AI 不擅长预测"离群事件"</li>
+        <li>金融崩盘、流行病、黑天鹅事件</li>
+        <li>我们的算法包含"学会学习"的种子</li>
+        <li>关键不是堆算力，而是聪明的策略</li>
+      </ul>
+      <div class="diagram">[对比图：ChatGPT（典型/模仿）vs 我们的算法（离群/创新）]</div>
+    </div>
+  </div>
+  <div class="transcript">
+    <div class="label">中文讲解</div>
+    <p>这些结果对数学界已经产生了影响，但我想谈谈更广泛的启示。</p>
+    <p>如果你让 ChatGPT 写一封信，它会给出最<span class="term">典型</span>的答案——它是一个很好的鹦鹉，但 unlikely 产生真正原创的东西。</p>
+    <p>我们的程序则擅长发现<span class="term">离群值（outliers）</span>——那些出人意料、却又正确的长序列动作。这正是预测<span class="term">罕见高影响事件</span>（如金融崩盘）所需要的核心能力。</p>
+    <p>关键洞察：<span class="term">不是扩大模型规模，而是设计更聪明的策略</span>。我们在小型学术计算机上就能复现这些结果——任何同事在全球任何地方都可以做到。</p>
+  </div>
+</div>
+
+<div class="slide-block">
+  <div class="timestamp">38:30</div>
+  <div class="ppt-frame">
+    <div class="slide-num">Slide 8</div>
+    <h3>Math + AI = AGI</h3>
+    <div class="ppt-content">
+      <ul>
+        <li>数学问题 = 从 A 到 B 的路径搜索</li>
+        <li>步数可达百万甚至十亿量级</li>
+        <li>需要自适应动作空间与难度感知</li>
+        <li>数学为 AI 提供了最纯粹的试验场</li>
+      </ul>
+      <div class="formula" style="text-align:center; font-size:1.1rem;">
+        Math + AI = AGI
+      </div>
+    </div>
+  </div>
+  <div class="transcript">
+    <div class="label">中文讲解</div>
+    <p>最后，让我回到这个等式：<span class="term">Math + AI = AGI</span>。</p>
+    <p>纯数学问题本质上是一种最纯粹的游戏：你知道起点 A（假设），知道终点 B（定理），但中间的连接缺失了。平均象棋 30–40 步，而数学问题可能需要<span class="term">百万步以上</span>。</p>
+    <p>如果 AI 能学会在这种极端稀疏奖励的环境中自主发现策略、自适应地扩展自己的能力边界、并用拓扑语言理解问题的难度——那么它离真正的<span class="term">通用人工智能（AGI）</span>就不远了。</p>
+    <p>数学不是 AI 的应用场景，而是 AI 的<span class="term">试金石</span>。谢谢大家。</p>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div style="text-align:center; color:#64748b; font-size:0.85rem; padding: 20px;">
+  <p>本视觉文档由 Video2VisionDoc 自动生成</p>
+  <p>核心参考文献：Shehper et al., NeurIPS 2025; Zhang et al., 2025</p>
+  <p>原始视频：BV13T3x69Eqz | 演讲者：Sergei Gukov (Caltech)</p>
+</div>
+
+</div>
+</body>
+</html>
