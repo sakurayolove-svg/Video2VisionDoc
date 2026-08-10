@@ -1,0 +1,125 @@
+# Video2VisionDoc 全局配置
+
+# ========== B站下载配置 ==========
+bilibili:
+  # 视频质量: 80(1080P), 64(720P), 32(480P), 16(360P)
+  quality: 80
+  # 是否下载弹幕
+  download_danmaku: false
+  # 下载超时(秒)
+  timeout: 120
+  # 并发下载片段数
+  threads: 4
+  # Cookie文件路径(用于下载大会员/付费内容, 可选)
+  cookie_file: ""
+
+# ========== 音频提取配置 ==========
+audio:
+  # 输出格式: mp3, wav, flac
+  format: "wav"
+  # 采样率
+  sample_rate: 16000
+  # 声道: 1(单声道), 2(立体声)
+  channels: 1
+
+# ========== 语音转文字配置 ==========
+transcription:
+  # 引擎: whisper, faster-whisper, openai-api
+  engine: "faster-whisper"
+  # 模型大小: tiny, base, small, medium, large-v3
+  model: "large-v3"
+  # 语言: auto(自动检测), en, zh, ja, etc.
+  language: "auto"
+  # 是否使用GPU
+  device: "cuda"
+  # 是否输出时间戳
+  timestamps: true
+  # 是否输出词级时间戳
+  word_timestamps: false
+  # 输出格式: srt, vtt, json, txt
+  output_format: "json"
+  # 并发处理音频片段数
+  beam_size: 5
+  # 最佳结果数量
+  best_of: 5
+  # 温度(采样随机性)
+  temperature: 0.0
+
+# ========== 翻译配置 ==========
+translation:
+  # 引擎: deep-translator(免费), openai(付费), argos(离线)
+  engine: "openai"
+  # 目标语言
+  target_language: "zh-CN"
+  # 是否保留原文
+  keep_original: true
+  # 专业术语保留英文(正则匹配)
+  preserve_terms:
+    - "sparse reward"
+    - "reinforcement learning"
+    - "topological quantum field theory"
+    - "persistent homology"
+    - "supermoves"
+    - "MDP"
+    - "PPO"
+    - "AGI"
+  # OpenAI 配置(当engine为openai时使用)
+  openai:
+    model: "gpt-4o-mini"
+    api_key: ""  # 从环境变量 OPENAI_API_KEY 读取, 或在此填写
+    base_url: "https://api.openai.com/v1"
+    temperature: 0.3
+    max_tokens: 4096
+
+# ========== 关键帧/PPT提取配置 ==========
+frame_extraction:
+  # 方法: scene_change(场景变化), fixed_interval(固定间隔), ocr_trigger(OCR触发)
+  method: "scene_change"
+  # 场景变化阈值(0-1, 越大越敏感)
+  scene_threshold: 0.3
+  # 固定间隔(秒)
+  interval: 5
+  # 最小帧间隔(秒, 避免过于密集)
+  min_interval: 2
+  # 输出格式: jpg, png
+  format: "jpg"
+  # 输出宽度(保持比例)
+  max_width: 1280
+  # 是否进行OCR识别文字区域
+  ocr_enabled: false
+
+# ========== 视觉文档生成配置 ==========
+vision_doc:
+  # 模板: default, academic, minimal
+  template: "academic"
+  # 输出格式: html, markdown, pdf
+  output_format: "html"
+  # 是否包含时间轴
+  include_timeline: true
+  # 是否包含PPT画面
+  include_frames: true
+  # 每页最大幻灯片数
+  slides_per_page: 1
+  # 主题色
+  theme_color: "#3b82f6"
+  # 字体
+  font_family: "'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif"
+  # 代码高亮
+  code_highlight: true
+  # 公式渲染(MathJax)
+  mathjax: true
+
+# ========== 输出配置 ==========
+output:
+  # 输出目录
+  directory: "./output"
+  # 是否清理临时文件
+  clean_temp: false
+  # 临时文件目录
+  temp_dir: "./temp"
+
+# ========== 日志配置 ==========
+logging:
+  level: "INFO"
+  file: "./logs/video2visiondoc.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

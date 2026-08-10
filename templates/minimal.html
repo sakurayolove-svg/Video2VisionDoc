@@ -1,0 +1,15 @@
+<!-- 示例：最小模板 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>{{title}}</title></head>
+<body>
+  <h1>{{title}}</h1>
+  {% for slide in slides %}
+  <div class="slide">
+    <h2>{{slide.timestamp}}</h2>
+    <img src="{{slide.frame_path}}" alt="frame"/>
+    <p>{{slide.text}}</p>
+  </div>
+  {% endfor %}
+</body>
+</html>
