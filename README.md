@@ -229,3 +229,33 @@ python main.py --url BV13T3x69Eqz --format pdf
 
 **维护者**: [sakurayolove-svg](https://github.com/sakurayolove-svg)  
 如有问题或建议，欢迎提交 Issue 或 PR。
+
+
+---
+
+## 真实案例
+
+### BV13T3x69Eqz — Sergei Gukov: 面向长时程稀疏奖励任务的人工智能工具
+
+- **视频时长**: 35 分钟 (2098s)
+- **提取帧数**: 27 帧（切片场景变化检测，3秒采样间隔）
+- **处理时间**: < 30 秒
+- **输出**: 2.0 MB 自包含 HTML 视觉文档
+
+**提取函数** (`examples/extract_keyframes_sliced.py`):
+```python
+frames = extract_keyframes_sliced(
+    video_path="./merged_video.mp4",
+    output_dir="./frames",
+    sample_interval_sec=3.0,   # 每3秒检查一帧
+    diff_threshold=6.0,        # 灰度绝对差均值阈值
+    min_interval_sec=8.0,      # 最小帧间隔
+    max_frames=40              # 最多40帧
+)
+```
+
+**核心优化**:
+1. `cv2.CAP_PROP_POS_FRAMES` 跳帧读取，不顺序遍历
+2. 160×90 灰度图做绝对差均值比较，比 SSIM 快 10 倍以上
+3. 第一帧强制保存（确保封面/标题页）
+4. 最多 40 帧上限，均匀覆盖全视频
