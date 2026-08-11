@@ -1,7 +1,7 @@
 """
-【v1 后端：PPT 布局分析抽帧】
-本文件复制自 src/extractors/frame_extractor.py（v1 初版实现），纳入 video2visiondoc 框架
-作为同级可切换后端。原始文件保留于 src/ 未作修改。
+【PPT 布局分析抽帧（与 interval_dhash 同级）】
+本文件复制自 src/extractors/frame_extractor.py（初版实现），纳入 video2visiondoc 框架
+作为同级可切换模块。原始文件保留于 src/ 未作修改。
 """
 """
 关键帧/PPT画面提取器 v4 — 基于布局分析的PPT智能定位

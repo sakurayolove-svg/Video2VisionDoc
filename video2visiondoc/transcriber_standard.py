@@ -1,7 +1,7 @@
 """
-【v1 后端：整段转写（faster-whisper / whisper / openai-api）】
-本文件复制自 src/processors/transcriber.py（v1 初版实现），纳入 video2visiondoc 框架
-作为同级可切换后端。原始文件保留于 src/ 未作修改。
+【整段转写（faster-whisper / whisper / openai-api，与 chunked 同级）】
+本文件复制自 src/processors/transcriber.py（初版实现），纳入 video2visiondoc 框架
+作为同级可切换模块。原始文件保留于 src/ 未作修改。
 """
 """
 语音转文字模块

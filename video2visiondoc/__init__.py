@@ -1,17 +1,19 @@
 """
-video2visiondoc —— 推荐流水线（v2）
+video2visiondoc —— B 站视频 → 视觉文档的统一流水线框架
 
-将 B 站演讲/课程视频转换为视觉文档的完整流水线：
-    下载（B站 API 直连）
-    → 语音转写（faster-whisper 分块，防 OOM）
-    → 关键帧提取（固定间隔抽帧 + dHash 去重）
-    → 按页对齐（每页 PPT 一个时间窗）
-    → 按页翻译（OpenAI 兼容 API，上下文连贯）
-    → 视觉文档（自包含 HTML，可选 PDF）
+将 B 站演讲/课程视频转换为视觉文档的完整流水线，每个阶段提供
+多个同级模块，用一个开关切换（默认项加粗，见 README）：
 
-本包是在真实任务（BV13T3x69Eqz，35 分钟英文演讲，无字幕，4GB 内存
-CPU 容器）中验证过的实现，作为仓库的推荐结构；仓库根目录下的
-main.py 与 src/ 为初版实现，作为补充保留。
+    下载（api / ytdlp）
+    → 语音转写（chunked / faster-whisper / whisper / openai-api）
+    → 关键帧提取（interval_dhash / ppt_layout）
+    → 对齐（per_slide / window）
+    → 翻译（llm / openai / deep-translator / argos）
+    → 视觉文档（slide / legacy）
+
+默认模块组合是在真实任务（BV13T3x69Eqz，35 分钟英文演讲，无字幕，
+4GB 内存 CPU 容器）中验证过的实现；其余同级模块复制自仓库根目录
+src/ 下的初版实现，与本包内默认模块并列可选。
 
 说明：各模块采用懒加载，只有真正用到某阶段时才要求对应依赖
 （如 faster-whisper 仅转写时需要，单独做关键帧/文档不需要）。

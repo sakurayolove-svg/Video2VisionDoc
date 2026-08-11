@@ -1,23 +1,23 @@
 # Video2VisionDoc 全局配置
 #
-# 每个阶段的 "后端选择项" 决定该阶段运行哪套实现：
-#   - v2（默认）：video2visiondoc/ 包，真实任务验证过的实现
-#   - v1（备选）：src/ 目录下的初版模块，被复用为可切换后端
-# 全部为默认值时，激活代码与 v2 实战验证版完全一致。
+# 每个阶段的 "模块选择项" 决定该阶段运行哪套实现（同级并列，单开关）：
+#   - 默认项：video2visiondoc/ 包内真实任务验证过的实现
+#   - 备选项：复制自 src/ 目录初版实现的同级模块
+# 全部为默认值时，激活代码与实战验证过的实现完全一致。
 
 # ========== B站下载配置 ==========
 bilibili:
-  # 后端选择（单开关）: api(v2 API直连, 默认, 抗反爬) / ytdlp(v1)
+  # 模块选择（单开关）: api(API直连, 默认, 抗反爬) / ytdlp
   method: "api"
-  # 视频质量: 80(1080P), 64(720P), 32(480P), 16(360P)（yt-dlp 后端使用）
+  # 视频质量: 80(1080P), 64(720P), 32(480P), 16(360P)（yt-dlp 模块使用）
   quality: 64
   # 是否下载弹幕
   download_danmaku: false
   # 下载超时(秒)
   timeout: 300
-  # 并发下载片段数（yt-dlp 后端使用）
+  # 并发下载片段数（yt-dlp 模块使用）
   threads: 4
-  # Cookie文件路径(用于下载大会员/付费内容, 可选, yt-dlp 后端使用)
+  # Cookie文件路径(用于下载大会员/付费内容, 可选, yt-dlp 模块使用)
   cookie_file: ""
 
 # ========== 音频提取配置 ==========
@@ -31,11 +31,11 @@ audio:
 
 # ========== 语音转文字配置 ==========
 transcription:
-  # 后端选择（单开关，同级并列）:
-  #   chunked       v2 分块转写(默认, 防OOM, 断点续跑)
-  #   faster-whisper  v1 整段(支持GPU/large-v3)
-  #   whisper         v1 整段(OpenAI官方实现)
-  #   openai-api      v1 云端API
+  # 模块选择（单开关，同级并列）:
+  #   chunked         分块转写(默认, 防OOM, 断点续跑)
+  #   faster-whisper  整段(支持GPU/large-v3)
+  #   whisper         整段(OpenAI官方实现)
+  #   openai-api      云端API
   engine: "chunked"
   # 模型大小: tiny, base, small, medium, large-v3
   # 实战验证: 4GB内存CPU环境 medium/small 整段均OOM, small 分块可稳定跑完
@@ -65,15 +65,15 @@ transcription:
 
 # ========== 翻译配置 ==========
 translation:
-  # 后端选择（单开关，同级并列）:
-  #   llm             v2 按页翻译(默认, 上下文连贯, 读 LLM_API_KEY/LLM_BASE_URL/LLM_MODEL)
-  #   openai          v1 逐段(GPT-4o-mini, 分批30段)
-  #   deep-translator v1 逐段(免费, 无需Key)
-  #   argos           v1 逐段(完全离线)
+  # 模块选择（单开关，同级并列）:
+  #   llm             按页翻译(默认, 上下文连贯, 读 LLM_API_KEY/LLM_BASE_URL/LLM_MODEL)
+  #   openai          逐段(GPT-4o-mini, 分批30段)
+  #   deep-translator 逐段(免费, 无需Key)
+  #   argos           逐段(完全离线)
   engine: "llm"
   # 目标语言
   target_language: "中文"
-  # 是否保留原文（v1）
+  # 是否保留原文（逐段引擎）
   keep_original: true
   # 专业术语保留英文
   preserve_terms:
@@ -86,7 +86,7 @@ translation:
     - "DQN"
     - "Go-Explore"
     - "evaluator"
-  # OpenAI 配置(v1 openai 引擎使用)
+  # OpenAI 配置(openai 引擎使用)
   openai:
     model: "gpt-4o-mini"
     api_key: ""  # 从环境变量 OPENAI_API_KEY 读取, 或在此填写
@@ -96,7 +96,7 @@ translation:
 
 # ========== 对齐配置 ==========
 alignment:
-  # 后端选择: per_slide(v2 按PPT页时间窗, 默认) / window(v1 ±60秒滑窗)
+  # 模块选择: per_slide(按PPT页时间窗, 默认) / window(±60秒滑窗)
   method: "per_slide"
   # window 模式的窗口秒数
   window_seconds: 60
@@ -105,25 +105,25 @@ alignment:
 
 # ========== 关键帧/PPT提取配置 ==========
 frame_extraction:
-  # 后端选择: interval_dhash(v2 均匀抽帧+dHash去重, 默认)
-  #           ppt_layout(v1 PPT布局分析+场景变化+直方图去重)
-  #           scene_change / fixed_interval / ocr_trigger(均归入 v1 后端)
+  # 模块选择: interval_dhash(均匀抽帧+dHash去重, 默认)
+  #           ppt_layout(PPT布局分析+场景变化+直方图去重)
+  #           scene_change / fixed_interval / ocr_trigger(均归入 ppt_layout 模块)
   method: "interval_dhash"
-  # v2 参数: 抽帧间隔(秒)
+  # interval_dhash 参数: 抽帧间隔(秒)
   sample_interval: 10
-  # v2 参数: dHash 汉明距离去重阈值(满分256)
+  # interval_dhash 参数: dHash 汉明距离去重阈值(满分256)
   hash_threshold: 40
-  # v1 参数: 场景变化阈值(0-1, 越大越敏感)
+  # ppt_layout 参数: 场景变化阈值(0-1, 越大越敏感)
   scene_threshold: 0.12
-  # v1 参数: 固定间隔保底(秒)
+  # ppt_layout 参数: 固定间隔保底(秒)
   interval: 25
-  # v1 参数: 最小帧间隔(秒)
+  # ppt_layout 参数: 最小帧间隔(秒)
   min_interval: 2
   # 输出格式: jpg, png
   format: "jpg"
   # 输出宽度(保持比例)
   max_width: 1280
-  # v1 参数: PPT 布局分析
+  # ppt_layout 参数: PPT 布局分析
   ppt_scan_duration: 60.0      # 扫描前N秒定位PPT
   ppt_score_threshold: 50.0    # PPT开始判定阈值
   ppt_min_score: 35.0          # 过滤非PPT帧的最低分数
@@ -132,13 +132,13 @@ frame_extraction:
 
 # ========== 视觉文档生成配置 ==========
 vision_doc:
-  # 后端选择: slide(v2 按页自包含HTML, 默认) / legacy(v1 模板生成器)
+  # 模块选择: slide(按页自包含HTML, 默认) / legacy(模板生成器)
   builder: "slide"
   # 输出格式: html(slide/legacy均可), markdown / pdf(legacy)
   output_format: "html"
   # 模板: default, academic, minimal（legacy）
   template: "academic"
-  # v2: 是否同时输出 PDF（需 playwright 或 weasyprint）
+  # slide: 是否同时输出 PDF（需 playwright 或 weasyprint）
   pdf: false
   # 是否包含时间轴（legacy）
   include_timeline: true

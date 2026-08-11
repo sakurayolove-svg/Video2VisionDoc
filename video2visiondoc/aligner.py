@@ -57,7 +57,7 @@ class SlideAligner:
                 "t_start": t_start,
                 "t_end": t_end if t_end != float("inf") else None,
                 "text": " ".join(seg["text"] for seg in window).strip(),
-                # 若段已被逐段翻译（v1 per_segment 模式），译文随窗带走
+                # 若段已被逐段翻译（per_segment 类引擎），译文随窗带走
                 "text_zh": " ".join(seg.get("text_zh", seg["text"])
                                     for seg in window).strip(),
             })
@@ -66,9 +66,9 @@ class SlideAligner:
 
 def align_window(slides: list, segments: list, window_seconds: int = 60) -> list:
     """
-    v1 风格对齐（备选后端）：每帧配对 ±window 秒内的转写段。
+    滑窗对齐（备选模块）：每帧配对 ±window 秒内的转写段。
     与 src/generators/vision_doc.py 的 _align_frames_with_segments 语义一致，
-    归一化为 v2 的 blocks 结构。
+    归一化为统一的 blocks 结构。
     """
     blocks = []
     for i, slide in enumerate(slides):

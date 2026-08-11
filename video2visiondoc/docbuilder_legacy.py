@@ -1,7 +1,7 @@
 """
-【v1 后端：模板化文档生成（HTML/MD/PDF）】
-本文件复制自 src/generators/vision_doc.py（v1 初版实现），纳入 video2visiondoc 框架
-作为同级可切换后端。原始文件保留于 src/ 未作修改。
+【模板化文档生成（HTML/MD/PDF，与 slide 同级）】
+本文件复制自 src/generators/vision_doc.py（初版实现），纳入 video2visiondoc 框架
+作为同级可切换模块。原始文件保留于 src/ 未作修改。
 """
 """
 视觉文档生成器

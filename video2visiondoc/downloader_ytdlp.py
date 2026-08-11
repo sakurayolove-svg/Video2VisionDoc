@@ -1,7 +1,7 @@
 """
-【v1 后端：yt-dlp 下载 + B站字幕获取】
-本文件复制自 src/extractors/bilibili.py（v1 初版实现），纳入 video2visiondoc 框架
-作为同级可切换后端。原始文件保留于 src/ 未作修改。
+【yt-dlp 下载 + B站字幕获取（备选模块，与 api 同级）】
+本文件复制自 src/extractors/bilibili.py（初版实现），纳入 video2visiondoc 框架
+作为同级可切换模块。原始文件保留于 src/ 未作修改。
 """
 """
 B站视频下载器

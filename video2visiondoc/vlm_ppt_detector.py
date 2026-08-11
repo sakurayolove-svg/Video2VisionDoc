@@ -1,7 +1,7 @@
 """
-【v1 后端：VLM PPT 检测（可选）】
-本文件复制自 src/extractors/vlm_ppt_detector.py（v1 初版实现），纳入 video2visiondoc 框架
-作为同级可切换后端。原始文件保留于 src/ 未作修改。
+【VLM PPT 检测（可选，供布局分析抽帧调用）】
+本文件复制自 src/extractors/vlm_ppt_detector.py（初版实现），纳入 video2visiondoc 框架
+作为同级可切换模块。原始文件保留于 src/ 未作修改。
 """
 """
 VLM-based PPT画面检测器

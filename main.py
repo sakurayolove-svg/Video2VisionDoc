@@ -3,19 +3,19 @@
 Video2VisionDoc: B站视频 → 语音转文字 → 翻译 → 视觉文档
 一键生成学术/演讲视频的视觉文档
 
-本文件为兼容入口：保留 v1 的命令行接口，内部统一走
-video2visiondoc 框架（pipeline.run）。各阶段后端由 config.yaml
+本文件为兼容入口：保留初版的命令行接口，内部统一走
+video2visiondoc 框架（pipeline.run）。各阶段模块由 config.yaml
 中的选择项决定（每阶段单开关，同级并列）：
 
-    bilibili.method:          api（v2 默认）/ ytdlp（v1）
-    transcription.engine:     chunked（v2 默认）/ faster-whisper / whisper / openai-api（v1）
-    translation.engine:       llm（v2 默认，按页）/ openai / deep-translator / argos（v1，逐段）
-    frame_extraction.method:  interval_dhash（v2 默认）/ ppt_layout（v1）
-    alignment.method:         per_slide（v2 默认）/ window（v1）
-    vision_doc.builder:       slide（v2 默认）/ legacy（v1）
+    bilibili.method:          api（默认）/ ytdlp
+    transcription.engine:     chunked（默认）/ faster-whisper / whisper / openai-api
+    translation.engine:       llm（默认，按页）/ openai / deep-translator / argos（逐段）
+    frame_extraction.method:  interval_dhash（默认）/ ppt_layout
+    alignment.method:         per_slide（默认）/ window
+    vision_doc.builder:       slide（默认）/ legacy
 
-所有后端实现均位于 video2visiondoc/ 包内（v1 实现为 src/ 的复制件），
-全部为 v2 默认值时，激活代码与 v2 实战验证版完全一致。
+所有模块实现均位于 video2visiondoc/ 包内（备选模块为 src/ 的复制件），
+全部为默认值时，激活代码与实战验证过的实现完全一致。
 
 用法:
     python main.py --url "https://www.bilibili.com/video/BV13T3x69Eqz" --output ./output
@@ -82,7 +82,7 @@ def parse_args():
                         help="目标翻译语言 (默认: 中文)")
     parser.add_argument("--translator",
                         choices=["openai", "deep-translator", "argos"],
-                        help="翻译引擎（v1 逐段模式）")
+                        help="翻译引擎（逐段模式）")
     parser.add_argument("--skip-translate", action="store_true",
                         help="跳过翻译")
 
@@ -91,15 +91,15 @@ def parse_args():
                         help="跳过关键帧提取")
     parser.add_argument("--frame-method",
                         choices=["scene_change", "fixed_interval", "ocr_trigger"],
-                        help="关键帧提取方法（v1 布局分析后端）")
+                        help="关键帧提取方法（布局分析模块）")
 
     # 文档生成控制
     parser.add_argument("--format", "-f",
                         choices=["html", "markdown", "pdf"],
-                        help="输出文档格式（markdown/pdf 走 v1 模板生成器）")
+                        help="输出文档格式（markdown/pdf 走模板生成器）")
     parser.add_argument("--template",
                         choices=["default", "academic", "minimal"],
-                        help="文档模板（v1 模板生成器）")
+                        help="文档模板（模板生成器）")
 
     # 其他
     parser.add_argument("--clean", action="store_true",
@@ -127,7 +127,7 @@ def main():
     if args.target_lang:
         config["translation"]["target_language"] = args.target_lang
     if args.translator:
-        # 单开关同级切换：选 v1 引擎即自动为逐段翻译
+        # 单开关同级切换：选这三个引擎即自动为逐段翻译
         config["translation"]["engine"] = args.translator
     if args.frame_method:
         config["frame_extraction"]["method"] = "ppt_layout"

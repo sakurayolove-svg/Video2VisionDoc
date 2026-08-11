@@ -1,15 +1,15 @@
 """
-cli.py —— 命令行入口（v2 框架）
+cli.py —— 命令行入口
 
 用法：
     python -m video2visiondoc <BV号或URL> [选项]
 
-所有阶段的后端均可在 config.yaml 中切换；以下命令行参数是常用配置的
-快捷覆盖。不传任何覆盖参数时，即为 v2 推荐配置
+所有阶段的模块均可在 config.yaml 中切换；以下命令行参数是常用配置的
+快捷覆盖。不传任何覆盖参数时，即为推荐配置
 （与实战验证时激活的代码完全一致）。
 
 示例：
-    # 全流程 v2 默认
+    # 全流程默认配置
     python -m video2visiondoc BV13T3x69Eqz -o ./output
 
     # 领域提示词改善专有名词识别
@@ -19,7 +19,7 @@ cli.py —— 命令行入口（v2 框架）
     # 剔除演讲者镜头帧（第 2、3 帧，1 起计数）并输出 PDF
     python -m video2visiondoc BV13T3x69Eqz --exclude-frames 2 3 --pdf
 
-    # 切换 v1 后端：yt-dlp 下载 + 布局分析抽帧 + 逐段翻译 + 模板文档
+    # 切换备选模块：yt-dlp 下载 + 布局分析抽帧 + 逐段翻译 + 模板文档
     python -m video2visiondoc BV13T3x69Eqz \
         --download ytdlp --engine whisper --translator deep-translator \
         --frames ppt_layout --align window --builder legacy
@@ -36,12 +36,12 @@ from .pipeline import run
 def parse_args(argv=None):
     p = argparse.ArgumentParser(
         prog="video2visiondoc",
-        description="B 站视频 → 语音转写 → 翻译 → PPT 视觉文档（v2 框架，后端可切换）")
+        description="B 站视频 → 语音转写 → 翻译 → PPT 视觉文档（模块可切换）")
     p.add_argument("url", help="B 站视频 URL 或 BV 号")
     p.add_argument("-o", "--output", default=None, help="输出目录")
     p.add_argument("-c", "--config", default=None, help="config.yaml 路径")
 
-    # v2 常用参数
+    # 常用参数
     p.add_argument("--model", default=None,
                    help="Whisper 模型 (tiny/base/small/medium/large-v3)")
     p.add_argument("--language", default=None, help="音频语言 (en/zh/...)")
@@ -53,25 +53,25 @@ def parse_args(argv=None):
     p.add_argument("--target-lang", default=None, help="目标语言")
     p.add_argument("--pdf", action="store_true", help="同时输出 PDF")
 
-    # 后端切换（对应 config.yaml 中的选择项，每阶段单开关同级并列）
+    # 模块切换（对应 config.yaml 中的选择项，每阶段单开关同级并列）
     p.add_argument("--download", choices=["api", "ytdlp"], default=None,
-                   help="下载后端：api=v2直连(默认) / ytdlp=v1")
+                   help="下载模块：api=API直连(默认) / ytdlp")
     p.add_argument("--engine", "-e",
                    choices=["chunked", "faster-whisper", "whisper", "openai-api"],
                    default=None,
-                   help="转写引擎：chunked=v2分块(默认) / faster-whisper / whisper / openai-api=v1整段")
+                   help="转写引擎：chunked=分块(默认) / faster-whisper / whisper / openai-api=整段")
     p.add_argument("--translator",
                    choices=["llm", "openai", "deep-translator", "argos"],
                    default=None,
-                   help="翻译引擎：llm=v2按页(默认) / openai / deep-translator / argos=v1逐段")
+                   help="翻译引擎：llm=按页(默认) / openai / deep-translator / argos=逐段")
     p.add_argument("--frames", choices=["interval_dhash", "ppt_layout"], default=None,
-                   help="抽帧后端：interval_dhash=v2(默认) / ppt_layout=v1布局分析")
+                   help="抽帧模块：interval_dhash(默认) / ppt_layout=布局分析")
     p.add_argument("--align", choices=["per_slide", "window"], default=None,
-                   help="对齐方式：per_slide=v2按页(默认) / window=v1滑窗")
+                   help="对齐方式：per_slide=按页(默认) / window=滑窗")
     p.add_argument("--builder", choices=["slide", "legacy"], default=None,
-                   help="文档后端：slide=v2(默认) / legacy=v1模板")
+                   help="文档模块：slide=按页HTML(默认) / legacy=模板")
 
-    # 流程控制（兼容 v1）
+    # 流程控制
     p.add_argument("--use-subtitle", action="store_true",
                    help="优先使用 B 站已有字幕")
     p.add_argument("--skip-download", action="store_true")

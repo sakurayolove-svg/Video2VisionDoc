@@ -1,15 +1,16 @@
 """
 backends.py —— 后端注册表（所有实现同级并列，单开关切换）
 
-所有后端实现都位于 video2visiondoc 包内：
-    - v2 实战验证实现：downloader / transcriber / keyframes /
-      aligner / translator / docbuilder（默认）
-    - v1 初版实现复制件：downloader_ytdlp / transcriber_standard /
-      keyframes_ppt_layout / vlm_ppt_detector / translator_engines /
-      docbuilder_legacy（与 v2 同级并列切换）
+所有模块实现都位于 video2visiondoc 包内，同级并列：
+
+    - downloader / transcriber / keyframes / aligner /
+      translator / docbuilder（默认模块，真实任务验证）
+    - downloader_ytdlp / transcriber_standard / keyframes_ppt_layout /
+      vlm_ppt_detector / translator_engines / docbuilder_legacy
+      （复制自 src/ 初版实现的同级备选模块）
 
 每个阶段只有一个选择开关，选 whisper 之类的细粒度引擎不需要
-再额外切换 mode：
+再额外切换任何其他开关：
 
     bilibili.method:          api（默认） | ytdlp
     transcription.engine:     chunked（默认） | faster-whisper | whisper | openai-api
@@ -18,9 +19,9 @@ backends.py —— 后端注册表（所有实现同级并列，单开关切换�
     alignment.method:         per_slide（默认） | window
     vision_doc.builder:       slide（默认） | legacy
 
-本模块只做归一化包装（统一各后端的输入输出数据结构），
-不修改任何后端实现代码。当全部使用默认值时，激活代码与
-v2 实战验证版完全一致。
+本模块只做归一化包装（统一各模块的输入输出数据结构），
+不修改任何模块实现代码。当全部使用默认值时，激活代码与
+真实任务验证过的实现完全一致。
 """
 
 from pathlib import Path
@@ -39,7 +40,7 @@ def download(url: str, workdir: str, config: dict) -> dict:
     """统一下载入口。返回 {info, video_path, audio_path, subtitles?}"""
     method = config["bilibili"].get("method", "api")
     if method == "ytdlp":
-        print("  后端: yt-dlp（v1）")
+        print("  后端: yt-dlp")
         from .downloader_ytdlp import BiliVideoExtractor
         result = BiliVideoExtractor(config).download_video(url, workdir)
         info = result["info"]
@@ -55,12 +56,12 @@ def download(url: str, workdir: str, config: dict) -> dict:
             "audio_path": result["audio_path"],
             "subtitles": result.get("subtitles"),
         }
-    print("  后端: API 直连（v2 默认）")
+    print("  后端: API 直连（默认）")
     return BiliDownloader(workdir).download(url)
 
 
 def get_bili_subtitles(bvid: str, cid: int, config: dict) -> list:
-    """B 站字幕获取（v1 实现，两种下载后端均可使用）"""
+    """B 站字幕获取（两种下载模块均可使用）"""
     from .downloader_ytdlp import BiliVideoExtractor
     return BiliVideoExtractor(config).get_subtitle(bvid, cid)
 
@@ -73,7 +74,7 @@ def transcribe(audio_path: str, workdir: str, config: dict) -> list:
     engine = tr_cfg.get("engine", "chunked")
 
     if engine == "chunked":
-        print("  后端: 分块转写（v2 默认，防 OOM）")
+        print("  后端: 分块转写（默认，防 OOM）")
         return ChunkedTranscriber(
             model_size=tr_cfg.get("model", "small"),
             device=tr_cfg.get("device", "cpu"),
@@ -84,8 +85,8 @@ def transcribe(audio_path: str, workdir: str, config: dict) -> list:
             initial_prompt=tr_cfg.get("initial_prompt", ""),
         ).transcribe(audio_path, workdir)
 
-    # v1 细粒度引擎：faster-whisper / whisper / openai-api（整段）
-    print(f"  后端: 整段转写 · {engine}（v1）")
+    # 细粒度整段引擎：faster-whisper / whisper / openai-api
+    print(f"  后端: 整段转写 · {engine}")
     from .transcriber_standard import AudioTranscriber
     result = AudioTranscriber(config).transcribe(audio_path, workdir)
     return [{"start": s["start"], "end": s["end"], "text": s["text"]}
@@ -93,7 +94,7 @@ def transcribe(audio_path: str, workdir: str, config: dict) -> list:
 
 
 def transcribe_via_bili_subtitle(subtitles: list, config: dict) -> list:
-    """复用 B 站已有字幕（v1 实现）"""
+    """复用 B 站已有字幕"""
     from .transcriber_standard import AudioTranscriber
     result = AudioTranscriber(config).use_bili_subtitle(subtitles)
     if not result:
@@ -106,7 +107,7 @@ def transcribe_via_bili_subtitle(subtitles: list, config: dict) -> list:
 
 def translate_segments(segments: list, workdir: str, config: dict) -> list:
     """
-    v1 逐段翻译（engine = openai / deep-translator / argos）。
+    逐段翻译（engine = openai / deep-translator / argos）。
     译文写入段的 "text_zh" 字段。
     """
     from .translator_engines import TextTranslator
@@ -122,7 +123,7 @@ def translate_segments(segments: list, workdir: str, config: dict) -> list:
 
 
 def translate_blocks(blocks: list, workdir: str, config: dict) -> list:
-    """v2 按页翻译（engine = llm，默认）"""
+    """按页翻译（engine = llm，默认）"""
     tr_cfg = config["translation"]
     return SlideTranslator(
         target_lang=tr_cfg.get("target_language", "中文"),
@@ -137,11 +138,11 @@ def extract_slides(video_path: str, out_dir: str, config: dict) -> list:
     fe_cfg = config["frame_extraction"]
     method = fe_cfg.get("method", "interval_dhash")
     if method == "ppt_layout":
-        print("  后端: PPT 布局分析（v1）")
+        print("  后端: PPT 布局分析")
         from .keyframes_ppt_layout import FrameExtractor
         frames = FrameExtractor(config).extract_frames(video_path, out_dir)
         return [{"image": f["path"], "time": f["timestamp"]} for f in frames]
-    print("  后端: 均匀抽帧 + dHash 去重（v2 默认）")
+    print("  后端: 均匀抽帧 + dHash 去重（默认）")
     return KeyframeExtractor(
         sample_interval=fe_cfg.get("sample_interval", 10),
         hash_threshold=fe_cfg.get("hash_threshold", 40),
@@ -155,10 +156,10 @@ def align(slides: list, segments: list, config: dict) -> list:
     al_cfg = config["alignment"]
     method = al_cfg.get("method", "per_slide")
     if method == "window" or not slides:
-        print("  后端: ±60s 滑窗（v1 语义）")
+        print("  后端: ±60s 滑窗")
         return align_window(slides, segments,
                             al_cfg.get("window_seconds", 60))
-    print("  后端: 按 PPT 页时间窗（v2 默认）")
+    print("  后端: 按 PPT 页时间窗（默认）")
     exclude = [i - 1 for i in al_cfg.get("exclude_frames", [])]
     return SlideAligner(exclude=exclude).align(slides, segments)
 
@@ -171,7 +172,7 @@ def build_doc(blocks, segments, slides, video_info: dict,
     doc_cfg = config["vision_doc"]
     builder = doc_cfg.get("builder", "slide")
     if builder == "legacy":
-        print("  后端: 模板生成器（v1，HTML/MD/PDF）")
+        print("  后端: 模板生成器（HTML/MD/PDF）")
         from .docbuilder_legacy import VisionDocGenerator
         translated_data = {
             "segments": [
@@ -182,12 +183,12 @@ def build_doc(blocks, segments, slides, video_info: dict,
         }
         frames = [{"timestamp": s["time"], "path": s["image"]}
                   for s in slides]
-        v1_info = dict(video_info)
-        v1_info["owner"] = {"name": video_info.get("owner", "")}
+        info = dict(video_info)
+        info["owner"] = {"name": video_info.get("owner", "")}
         return VisionDocGenerator(config).generate(
-            translated_data, frames, v1_info, out_dir)
+            translated_data, frames, info, out_dir)
 
-    print("  后端: 按页视觉文档（v2 默认）")
+    print("  后端: 按页视觉文档（默认）")
     safe = "".join(c if c.isalnum() or c in " _-" else "_"
                    for c in video_info.get("title", "doc"))[:50]
     vb = VisionDocBuilder()

@@ -1,9 +1,9 @@
 """
-pipeline.py —— 统一流水线编排（v2 框架）
+pipeline.py —— 统一流水线编排
 
-六个阶段，每个阶段单开关切换后端（实现均位于本包内，同级并列）：
+六个阶段，每个阶段单开关切换模块（实现均位于本包内，同级并列）：
 
-    阶段     开关（config.yaml）            可选后端（粗体为 v2 默认）
+    阶段     开关（config.yaml）            可选模块（第 1 项为默认）
     ─────────────────────────────────────────────────────────────
     1. 下载   bilibili.method               api / ytdlp
     2. 转写   transcription.engine          chunked / faster-whisper / whisper / openai-api
@@ -12,7 +12,7 @@ pipeline.py —— 统一流水线编排（v2 框架）
     5. 对齐   alignment.method              per_slide / window
     6. 文档   vision_doc.builder            slide / legacy
 
-全部为默认值时，激活代码与 v2 实战验证版完全一致。
+全部为默认值时，激活代码与实战验证过的实现完全一致。
 
 入口：
     - python -m video2visiondoc   → cli.py   → run()
@@ -59,7 +59,7 @@ def run(url: str, config: dict,
     info = result["info"]
     subtitles = result.get("subtitles")
 
-    # B 站字幕获取（复用 v1 实现，与下载后端无关）
+    # B 站字幕获取（与下载模块无关，均可使用）
     if use_subtitle and not subtitles:
         try:
             subtitles = backends.get_bili_subtitles(
@@ -75,7 +75,7 @@ def run(url: str, config: dict,
     elif skip_transcribe:
         raise ValueError("--skip-transcribe 需要通过 --transcript 提供转录文件")
     elif use_subtitle and subtitles:
-        print("  后端: B 站已有字幕（v1 复用）")
+        print("  后端: B 站已有字幕")
         segments = backends.transcribe_via_bili_subtitle(subtitles, config)
         if not segments:
             print("  字幕不可用，回退到语音转写")
@@ -86,12 +86,12 @@ def run(url: str, config: dict,
                                        str(workdir), config)
 
     # ================= Step 3: 翻译 =================
-    # llm（v2 默认）：按页翻译，在对齐后执行；
-    # openai / deep-translator / argos（v1）：逐段翻译，在抽帧前执行。
+    # llm（默认）：按页翻译，在对齐后执行；
+    # openai / deep-translator / argos：逐段翻译，在抽帧前执行。
     trans_engine = config["translation"].get("engine", "llm")
     per_page = trans_engine == "llm"
     if not skip_translate and not per_page:
-        print(f"\n[Step 3/6] 翻译（逐段 · {trans_engine}，v1）")
+        print(f"\n[Step 3/6] 翻译（逐段 · {trans_engine}）")
         segments = backends.translate_segments(segments, str(workdir), config)
     else:
         print(f"\n[Step 3/6] 翻译（按页 · llm，将在对齐后执行）")
