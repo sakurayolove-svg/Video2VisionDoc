@@ -18,20 +18,21 @@ Video2VisionDoc 是一个面向学术视频处理的自动化工具链，核心�
 
 ### 统一流水线与可切换后端
 
-整个工具是一条六阶段流水线：**下载 → 转写 → 翻译 → 关键帧 → 对齐 → 文档生成**。每个阶段都有两套可切换的实现后端：
+整个工具是一条六阶段流水线：**下载 → 转写 → 翻译 → 关键帧 → 对齐 → 文档生成**。每个阶段有多个**同级并列**的实现后端，用 config.yaml 中的**一个开关**即可切换（选 whisper 这类细粒度引擎不需要再切别的开关）：
 
-| 阶段 | v2 后端（默认，实战验证） | v1 后端（初版，复用保留） |
-|------|--------------------------|--------------------------|
-| 1. 下载 | **API 直连**：`view`→`playurl` 取 DASH 流，抗 B 站反爬(412) | yt-dlp 下载（支持 Cookie/高画质） |
-| 2. 转写 | **分块转写**：5 分钟一块 + VAD + int8，防 OOM，断点续跑 | 整段转写（faster-whisper / whisper / openai-api 多引擎） |
-| 3. 翻译 | **按页翻译**：OpenAI 兼容 API，页内上下文连贯 | 逐段翻译（openai / deep-translator / argos） |
-| 4. 关键帧 | **均匀抽帧 + dHash 去重**：10 秒一帧，256 bit 哈希 | PPT 布局分析 + 场景变化 + 直方图去重 |
-| 5. 对齐 | **按 PPT 页时间窗**：一页 PPT 对应一段讲解 | ±60 秒滑窗配对 |
-| 6. 文档 | **按页自包含 HTML**：一页一截图一段译稿 | 模板生成器（academic/minimal，HTML/MD/PDF） |
+| 阶段 | 开关 | 可选后端（**加粗**为 v2 默认，实战验证） |
+|------|------|------------------------------------------|
+| 1. 下载 | `bilibili.method` | **`api`**（API 直连抗反爬） · `ytdlp`（Cookie/高画质） |
+| 2. 转写 | `transcription.engine` | **`chunked`**（分块防 OOM） · `faster-whisper` · `whisper` · `openai-api` |
+| 3. 翻译 | `translation.engine` | **`llm`**（按页，OpenAI 兼容） · `openai` · `deep-translator` · `argos`（逐段） |
+| 4. 关键帧 | `frame_extraction.method` | **`interval_dhash`**（均匀抽帧+哈希去重） · `ppt_layout`（布局分析） |
+| 5. 对齐 | `alignment.method` | **`per_slide`**（按 PPT 页时间窗） · `window`（±60s 滑窗） |
+| 6. 文档 | `vision_doc.builder` | **`slide`**（按页自包含 HTML） · `legacy`（模板，HTML/MD/PDF） |
 
-- v2 后端位于 `video2visiondoc/` 包，是在真实任务（BV13T3x69Eqz，35 分钟英文演讲、**无字幕**、4GB 内存 CPU 容器）中完整验证过的实现，**为默认推荐**；
-- v1 后端位于 `src/` 目录，全部保留未删，通过 `video2visiondoc/backends.py` 适配层复用；
-- **当配置全部为 v2 默认值时，激活的代码与 v2 实战验证版完全一致**；把任一阶段切到 v1，只有该阶段改走 `src/` 下的对应模块。
+- 所有后端实现都在 `video2visiondoc/` 包内：v2 实战验证实现（`downloader.py`、`transcriber.py`、`keyframes.py`、`aligner.py`、`translator.py`、`docbuilder.py`）与 v1 初版实现的复制件（`downloader_ytdlp.py`、`transcriber_standard.py`、`translator_engines.py`、`keyframes_ppt_layout.py`、`vlm_ppt_detector.py`、`docbuilder_legacy.py`）**同级并列**，由 `backends.py` 注册表统一调度；
+- v2 实现验证环境：BV13T3x69Eqz（35 分钟英文演讲、**无字幕**、4GB 内存 CPU 容器），**为默认推荐**；
+- v1 原始代码保留在 `src/` 目录未作修改（作为历史版本存档）；
+- **当配置全部为 v2 默认值时，激活的代码与 v2 实战验证版完全一致**。
 
 ---
 
@@ -75,16 +76,17 @@ brew install ffmpeg
 
 ```yaml
 bilibili:
-  method: "api"              # api(v2默认,抗反爬) / yt-dlp(v1,支持Cookie)
+  method: "api"              # api(v2默认,抗反爬) / ytdlp(v1,支持Cookie)
 
 transcription:
-  mode: "chunked"            # chunked(v2默认,分块防OOM) / standard(v1整段)
+  engine: "chunked"          # chunked(v2默认,分块防OOM)
+                             # / faster-whisper / whisper / openai-api(v1整段)
   model: "small"             # 4GB内存验证值; 有GPU可改 large-v3
   initial_prompt: ""         # 领域提示词, 显著改善专有名词识别
 
 translation:
-  mode: "per_page"           # per_page(v2默认,按页) / per_segment(v1逐段)
-  engine: "llm"              # llm(v2,OpenAI兼容) / openai / deep-translator / argos
+  engine: "llm"              # llm(v2默认,按页,OpenAI兼容)
+                             # / openai / deep-translator / argos(v1逐段)
 
 frame_extraction:
   method: "interval_dhash"   # interval_dhash(v2默认) / ppt_layout(v1布局分析)
@@ -125,10 +127,10 @@ python -m video2visiondoc BV13T3x69Eqz -o ./output
 # 入口 B：v1 兼容入口（参数接口与初版一致）
 python main.py --url BV13T3x69Eqz --output ./output
 
-# 切换 v1 后端示例（命令行覆盖 config.yaml）
+# 切换 v1 后端示例（命令行覆盖 config.yaml，每阶段一个开关）
 python -m video2visiondoc BV13T3x69Eqz \
-    --download yt-dlp --frames ppt_layout \
-    --translate-mode per_segment --builder legacy
+    --download ytdlp --engine whisper --translator deep-translator \
+    --frames ppt_layout --align window --builder legacy
 ```
 
 **中间产物**（输出到 `./output/work/`）：
@@ -193,7 +195,7 @@ python -m video2visiondoc BV13T3x69Eqz --skip-frames
 - **抗反爬**：带 UA + Referer 直接下载流文件，规避 yt-dlp 直连常见的 HTTP 412
 - **ffmpeg 合并**：video.m4s + audio.m4s → mp4，并提取 16kHz 单声道 WAV（Whisper 最优输入）
 
-**v1 后端（备选）：yt-dlp**（`src/extractors/bilibili.py`）
+**v1 后端（备选）：yt-dlp**（`video2visiondoc/downloader_ytdlp.py`，复制自 `src/extractors/bilibili.py`）
 
 - 支持 Cookie 文件（大会员高画质/付费内容）、并发分片、更多画质选择
 - **字幕获取**：`x/player/wbi/v2` 获取 B 站人工/AI 字幕（两个后端都可用，`--use-subtitle`）
@@ -209,7 +211,7 @@ python -m video2visiondoc BV13T3x69Eqz --skip-frames
 - 每块完成即落盘 `transcript_partial.json`，崩溃后可断点续跑
 - 时间戳自动加块偏移，拼成全局时间轴
 
-**v1 后端（备选）：整段多引擎**（`src/processors/transcriber.py`）
+**v1 后端（备选）：整段多引擎**（`video2visiondoc/transcriber_standard.py`，复制自 `src/processors/transcriber.py`）
 
 | 引擎 | 运行方式 | 特点 | 推荐场景 |
 |------|----------|------|----------|
@@ -229,7 +231,7 @@ python -m video2visiondoc BV13T3x69Eqz --skip-frames
 - 无 API Key 时优雅降级保留原文；每页翻译完即落盘，支持断点续翻
 - `preserve_terms` 术语保护列表注入 prompt
 
-**v1 后端（备选）：逐段三引擎**（`src/processors/translator.py`）
+**v1 后端（备选）：逐段三引擎**（`video2visiondoc/translator_engines.py`，复制自 `src/processors/translator.py`）
 
 | 引擎 | 成本 | 质量 | 特点 |
 |------|------|------|------|
@@ -247,11 +249,11 @@ python -m video2visiondoc BV13T3x69Eqz --skip-frames
 - dHash（16×16，256 bit）与上一个"保留帧"比较汉明距离，超过阈值（默认 40）才保留——避免与相邻帧比较时的累积漂移
 - 实测：35 分钟视频 210 帧 → 27 帧，演讲者镜头与 PPT 自然区分
 
-**v1 后端（备选）：PPT 布局分析**（`src/extractors/frame_extractor.py`）
+**v1 后端（备选）：PPT 布局分析**（`video2visiondoc/keyframes_ppt_layout.py`，复制自 `src/extractors/frame_extractor.py`）
 
 - 扫描前 60 秒，按文字密度/结构化布局/边缘密度/对比度/背景均匀性计算 PPT 布局分数，定位 PPT 真正开始位置（不假设"开头=第一页"）
 - 场景变化 + 固定间隔双路采样，PPT 分数过滤非 PPT 帧，直方图去重
-- 可选 VLM 检测（`src/extractors/vlm_ppt_detector.py`）
+- 可选 VLM 检测（`video2visiondoc/vlm_ppt_detector.py`）
 
 ### 3.5 转写文本与画面对齐
 
@@ -272,7 +274,7 @@ python -m video2visiondoc BV13T3x69Eqz --skip-frames
 - 图片全部内嵌为 base64 Data URI，单文件离线浏览/邮件/网盘分享
 - `--pdf` 时经 Playwright（或 WeasyPrint）输出 A4 PDF
 
-**v1 后端（备选）：模板生成器**（`src/generators/vision_doc.py`）
+**v1 后端（备选）：模板生成器**（`video2visiondoc/docbuilder_legacy.py`，复制自 `src/generators/vision_doc.py`）
 
 - academic / minimal 模板，HTML / Markdown / PDF 三格式
 - 深色主题、代码高亮、MathJax 公式渲染、术语高亮
@@ -345,7 +347,7 @@ segments = ChunkedTranscriber(
 - **处理时间**: < 30 秒
 - **输出**: 6.0 MB 自包含 HTML 视觉文档
 
-**PPT智能定位算法** (`src/extractors/frame_extractor.py`):
+**PPT智能定位算法**（`video2visiondoc/keyframes_ppt_layout.py`，原始版本存档于 `src/extractors/frame_extractor.py`）:
 ```python
 # 不再假设"视频开头=PPT第一页"
 # 1. 扫描前60秒，每秒采样一帧

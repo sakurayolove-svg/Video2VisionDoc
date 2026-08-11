@@ -21,8 +21,8 @@ cli.py —— 命令行入口（v2 框架）
 
     # 切换 v1 后端：yt-dlp 下载 + 布局分析抽帧 + 逐段翻译 + 模板文档
     python -m video2visiondoc BV13T3x69Eqz \
-        --download yt-dlp --frames ppt_layout \
-        --translate-mode per_segment --builder legacy
+        --download ytdlp --engine whisper --translator deep-translator \
+        --frames ppt_layout --align window --builder legacy
 """
 
 import argparse
@@ -53,17 +53,21 @@ def parse_args(argv=None):
     p.add_argument("--target-lang", default=None, help="目标语言")
     p.add_argument("--pdf", action="store_true", help="同时输出 PDF")
 
-    # 后端切换（对应 config.yaml 中的选择项）
-    p.add_argument("--download", choices=["api", "yt-dlp"], default=None,
-                   help="下载后端：api=v2直连(默认) / yt-dlp=v1")
-    p.add_argument("--transcribe-mode", choices=["chunked", "standard"], default=None,
-                   help="转写模式：chunked=v2分块(默认) / standard=v1整段")
+    # 后端切换（对应 config.yaml 中的选择项，每阶段单开关同级并列）
+    p.add_argument("--download", choices=["api", "ytdlp"], default=None,
+                   help="下载后端：api=v2直连(默认) / ytdlp=v1")
+    p.add_argument("--engine", "-e",
+                   choices=["chunked", "faster-whisper", "whisper", "openai-api"],
+                   default=None,
+                   help="转写引擎：chunked=v2分块(默认) / faster-whisper / whisper / openai-api=v1整段")
+    p.add_argument("--translator",
+                   choices=["llm", "openai", "deep-translator", "argos"],
+                   default=None,
+                   help="翻译引擎：llm=v2按页(默认) / openai / deep-translator / argos=v1逐段")
     p.add_argument("--frames", choices=["interval_dhash", "ppt_layout"], default=None,
                    help="抽帧后端：interval_dhash=v2(默认) / ppt_layout=v1布局分析")
     p.add_argument("--align", choices=["per_slide", "window"], default=None,
                    help="对齐方式：per_slide=v2按页(默认) / window=v1滑窗")
-    p.add_argument("--translate-mode", choices=["per_page", "per_segment"], default=None,
-                   help="翻译模式：per_page=v2按页(默认) / per_segment=v1逐段")
     p.add_argument("--builder", choices=["slide", "legacy"], default=None,
                    help="文档后端：slide=v2(默认) / legacy=v1模板")
 
@@ -99,12 +103,10 @@ def main(argv=None):
         config["translation"]["target_language"] = args.target_lang
     if args.pdf:           config["vision_doc"]["pdf"] = True
     if args.download:      config["bilibili"]["method"] = args.download
-    if args.transcribe_mode:
-        config["transcription"]["mode"] = args.transcribe_mode
+    if args.engine:        config["transcription"]["engine"] = args.engine
+    if args.translator:    config["translation"]["engine"] = args.translator
     if args.frames:        config["frame_extraction"]["method"] = args.frames
     if args.align:         config["alignment"]["method"] = args.align
-    if args.translate_mode:
-        config["translation"]["mode"] = args.translate_mode
     if args.builder:       config["vision_doc"]["builder"] = args.builder
 
     transcript = None

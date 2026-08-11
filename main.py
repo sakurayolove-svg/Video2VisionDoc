@@ -5,17 +5,17 @@ Video2VisionDoc: B站视频 → 语音转文字 → 翻译 → 视觉文档
 
 本文件为兼容入口：保留 v1 的命令行接口，内部统一走
 video2visiondoc 框架（pipeline.run）。各阶段后端由 config.yaml
-中的选择项决定：
+中的选择项决定（每阶段单开关，同级并列）：
 
-    bilibili.method:         api（v2 默认）/ yt-dlp（v1）
-    transcription.mode:      chunked（v2 默认）/ standard（v1）
-    frame_extraction.method: interval_dhash（v2 默认）/ ppt_layout（v1）
-    alignment.method:        per_slide（v2 默认）/ window（v1）
-    translation.mode:        per_page（v2 默认）/ per_segment（v1）
-    vision_doc.builder:      slide（v2 默认）/ legacy（v1）
+    bilibili.method:          api（v2 默认）/ ytdlp（v1）
+    transcription.engine:     chunked（v2 默认）/ faster-whisper / whisper / openai-api（v1）
+    translation.engine:       llm（v2 默认，按页）/ openai / deep-translator / argos（v1，逐段）
+    frame_extraction.method:  interval_dhash（v2 默认）/ ppt_layout（v1）
+    alignment.method:         per_slide（v2 默认）/ window（v1）
+    vision_doc.builder:       slide（v2 默认）/ legacy（v1）
 
-全部为 v2 默认值时，激活代码与 video2visiondoc 包完全一致；
-v1 实现保留在 src/ 下，作为备选后端被复用。
+所有后端实现均位于 video2visiondoc/ 包内（v1 实现为 src/ 的复制件），
+全部为 v2 默认值时，激活代码与 v2 实战验证版完全一致。
 
 用法:
     python main.py --url "https://www.bilibili.com/video/BV13T3x69Eqz" --output ./output
@@ -118,10 +118,8 @@ def main():
     if args.output:
         config["output"]["directory"] = args.output
     if args.engine:
+        # 单开关同级切换：whisper / openai-api / faster-whisper 直接选
         config["transcription"]["engine"] = args.engine
-        # whisper / openai-api 引擎只有 v1 整段模式支持
-        if args.engine != "faster-whisper":
-            config["transcription"]["mode"] = "standard"
     if args.model:
         config["transcription"]["model"] = args.model
     if args.language:
@@ -129,9 +127,8 @@ def main():
     if args.target_lang:
         config["translation"]["target_language"] = args.target_lang
     if args.translator:
-        # 显式选择 v1 翻译引擎 → 逐段模式
+        # 单开关同级切换：选 v1 引擎即自动为逐段翻译
         config["translation"]["engine"] = args.translator
-        config["translation"]["mode"] = "per_segment"
     if args.frame_method:
         config["frame_extraction"]["method"] = "ppt_layout"
     if args.format:

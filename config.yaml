@@ -7,7 +7,7 @@
 
 # ========== B站下载配置 ==========
 bilibili:
-  # 后端选择: api(v2 API直连, 默认, 抗反爬) / yt-dlp(v1)
+  # 后端选择（单开关）: api(v2 API直连, 默认, 抗反爬) / ytdlp(v1)
   method: "api"
   # 视频质量: 80(1080P), 64(720P), 32(480P), 16(360P)（yt-dlp 后端使用）
   quality: 64
@@ -31,10 +31,12 @@ audio:
 
 # ========== 语音转文字配置 ==========
 transcription:
-  # 后端选择: chunked(v2 分块防OOM, 默认) / standard(v1 整段, 支持多引擎)
-  mode: "chunked"
-  # 引擎: faster-whisper(chunked/standard均可), whisper / openai-api(仅standard)
-  engine: "faster-whisper"
+  # 后端选择（单开关，同级并列）:
+  #   chunked       v2 分块转写(默认, 防OOM, 断点续跑)
+  #   faster-whisper  v1 整段(支持GPU/large-v3)
+  #   whisper         v1 整段(OpenAI官方实现)
+  #   openai-api      v1 云端API
+  engine: "chunked"
   # 模型大小: tiny, base, small, medium, large-v3
   # 实战验证: 4GB内存CPU环境 medium/small 整段均OOM, small 分块可稳定跑完
   model: "small"
@@ -63,10 +65,11 @@ transcription:
 
 # ========== 翻译配置 ==========
 translation:
-  # 后端选择: per_page(v2 按页翻译, 默认, 上下文连贯) / per_segment(v1 逐段)
-  mode: "per_page"
-  # 引擎: llm(v2, OpenAI兼容API, 读 LLM_API_KEY/LLM_BASE_URL/LLM_MODEL 环境变量)
-  #       openai / deep-translator / argos (v1, per_segment 模式)
+  # 后端选择（单开关，同级并列）:
+  #   llm             v2 按页翻译(默认, 上下文连贯, 读 LLM_API_KEY/LLM_BASE_URL/LLM_MODEL)
+  #   openai          v1 逐段(GPT-4o-mini, 分批30段)
+  #   deep-translator v1 逐段(免费, 无需Key)
+  #   argos           v1 逐段(完全离线)
   engine: "llm"
   # 目标语言
   target_language: "中文"
