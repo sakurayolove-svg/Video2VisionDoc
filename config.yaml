@@ -1,16 +1,23 @@
 # Video2VisionDoc 全局配置
+#
+# 每个阶段的 "后端选择项" 决定该阶段运行哪套实现：
+#   - v2（默认）：video2visiondoc/ 包，真实任务验证过的实现
+#   - v1（备选）：src/ 目录下的初版模块，被复用为可切换后端
+# 全部为默认值时，激活代码与 v2 实战验证版完全一致。
 
 # ========== B站下载配置 ==========
 bilibili:
-  # 视频质量: 80(1080P), 64(720P), 32(480P), 16(360P)
-  quality: 80
+  # 后端选择: api(v2 API直连, 默认, 抗反爬) / yt-dlp(v1)
+  method: "api"
+  # 视频质量: 80(1080P), 64(720P), 32(480P), 16(360P)（yt-dlp 后端使用）
+  quality: 64
   # 是否下载弹幕
   download_danmaku: false
   # 下载超时(秒)
-  timeout: 120
-  # 并发下载片段数
+  timeout: 300
+  # 并发下载片段数（yt-dlp 后端使用）
   threads: 4
-  # Cookie文件路径(用于下载大会员/付费内容, 可选)
+  # Cookie文件路径(用于下载大会员/付费内容, 可选, yt-dlp 后端使用)
   cookie_file: ""
 
 # ========== 音频提取配置 ==========
@@ -24,46 +31,59 @@ audio:
 
 # ========== 语音转文字配置 ==========
 transcription:
-  # 引擎: whisper, faster-whisper, openai-api
+  # 后端选择: chunked(v2 分块防OOM, 默认) / standard(v1 整段, 支持多引擎)
+  mode: "chunked"
+  # 引擎: faster-whisper(chunked/standard均可), whisper / openai-api(仅standard)
   engine: "faster-whisper"
   # 模型大小: tiny, base, small, medium, large-v3
-  model: "large-v3"
+  # 实战验证: 4GB内存CPU环境 medium/small 整段均OOM, small 分块可稳定跑完
+  model: "small"
   # 语言: auto(自动检测), en, zh, ja, etc.
-  language: "auto"
+  language: "en"
   # 是否使用GPU
-  device: "cuda"
+  device: "cpu"
+  # 量化方式（cpu 建议 int8）
+  compute_type: "int8"
+  # 分块长度秒数（chunked 模式）
+  chunk_seconds: 300
+  # 领域提示词，显著改善专有名词识别（chunked 模式）
+  initial_prompt: ""
   # 是否输出时间戳
   timestamps: true
-  # 是否输出词级时间戳
+  # 是否输出词级时间戳（standard 模式）
   word_timestamps: false
-  # 输出格式: srt, vtt, json, txt
+  # 输出格式: srt, vtt, json, txt（standard 模式）
   output_format: "json"
-  # 并发处理音频片段数
-  beam_size: 5
-  # 最佳结果数量
+  # beam search 宽度
+  beam_size: 3
+  # 最佳结果数量（standard 模式）
   best_of: 5
   # 温度(采样随机性)
   temperature: 0.0
 
 # ========== 翻译配置 ==========
 translation:
-  # 引擎: deep-translator(免费), openai(付费), argos(离线)
-  engine: "openai"
+  # 后端选择: per_page(v2 按页翻译, 默认, 上下文连贯) / per_segment(v1 逐段)
+  mode: "per_page"
+  # 引擎: llm(v2, OpenAI兼容API, 读 LLM_API_KEY/LLM_BASE_URL/LLM_MODEL 环境变量)
+  #       openai / deep-translator / argos (v1, per_segment 模式)
+  engine: "llm"
   # 目标语言
-  target_language: "zh-CN"
-  # 是否保留原文
+  target_language: "中文"
+  # 是否保留原文（v1）
   keep_original: true
-  # 专业术语保留英文(正则匹配)
+  # 专业术语保留英文
   preserve_terms:
     - "sparse reward"
+    - "long horizon"
     - "reinforcement learning"
-    - "topological quantum field theory"
-    - "persistent homology"
-    - "supermoves"
-    - "MDP"
-    - "PPO"
-    - "AGI"
-  # OpenAI 配置(当engine为openai时使用)
+    - "Montezuma's Revenge"
+    - "Andrews-Curtis conjecture"
+    - "Ramsey numbers"
+    - "DQN"
+    - "Go-Explore"
+    - "evaluator"
+  # OpenAI 配置(v1 openai 引擎使用)
   openai:
     model: "gpt-4o-mini"
     api_key: ""  # 从环境变量 OPENAI_API_KEY 读取, 或在此填写
@@ -71,42 +91,65 @@ translation:
     temperature: 0.3
     max_tokens: 4096
 
+# ========== 对齐配置 ==========
+alignment:
+  # 后端选择: per_slide(v2 按PPT页时间窗, 默认) / window(v1 ±60秒滑窗)
+  method: "per_slide"
+  # window 模式的窗口秒数
+  window_seconds: 60
+  # 需要剔除的帧序号（1 起），如开场的演讲者镜头
+  exclude_frames: []
+
 # ========== 关键帧/PPT提取配置 ==========
 frame_extraction:
-  # 方法: scene_change(场景变化), fixed_interval(固定间隔), ocr_trigger(OCR触发)
-  method: "scene_change"
-  # 场景变化阈值(0-1, 越大越敏感)
-  scene_threshold: 0.3
-  # 固定间隔(秒)
-  interval: 5
-  # 最小帧间隔(秒, 避免过于密集)
+  # 后端选择: interval_dhash(v2 均匀抽帧+dHash去重, 默认)
+  #           ppt_layout(v1 PPT布局分析+场景变化+直方图去重)
+  #           scene_change / fixed_interval / ocr_trigger(均归入 v1 后端)
+  method: "interval_dhash"
+  # v2 参数: 抽帧间隔(秒)
+  sample_interval: 10
+  # v2 参数: dHash 汉明距离去重阈值(满分256)
+  hash_threshold: 40
+  # v1 参数: 场景变化阈值(0-1, 越大越敏感)
+  scene_threshold: 0.12
+  # v1 参数: 固定间隔保底(秒)
+  interval: 25
+  # v1 参数: 最小帧间隔(秒)
   min_interval: 2
   # 输出格式: jpg, png
   format: "jpg"
   # 输出宽度(保持比例)
   max_width: 1280
+  # v1 参数: PPT 布局分析
+  ppt_scan_duration: 60.0      # 扫描前N秒定位PPT
+  ppt_score_threshold: 50.0    # PPT开始判定阈值
+  ppt_min_score: 35.0          # 过滤非PPT帧的最低分数
   # 是否进行OCR识别文字区域
   ocr_enabled: false
 
 # ========== 视觉文档生成配置 ==========
 vision_doc:
-  # 模板: default, academic, minimal
-  template: "academic"
-  # 输出格式: html, markdown, pdf
+  # 后端选择: slide(v2 按页自包含HTML, 默认) / legacy(v1 模板生成器)
+  builder: "slide"
+  # 输出格式: html(slide/legacy均可), markdown / pdf(legacy)
   output_format: "html"
-  # 是否包含时间轴
+  # 模板: default, academic, minimal（legacy）
+  template: "academic"
+  # v2: 是否同时输出 PDF（需 playwright 或 weasyprint）
+  pdf: false
+  # 是否包含时间轴（legacy）
   include_timeline: true
-  # 是否包含PPT画面
+  # 是否包含PPT画面（legacy）
   include_frames: true
   # 每页最大幻灯片数
   slides_per_page: 1
-  # 主题色
+  # 主题色（legacy）
   theme_color: "#3b82f6"
-  # 字体
+  # 字体（legacy）
   font_family: "'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif"
-  # 代码高亮
+  # 代码高亮（legacy）
   code_highlight: true
-  # 公式渲染(MathJax)
+  # 公式渲染(MathJax)（legacy）
   mathjax: true
 
 # ========== 输出配置 ==========

@@ -26,6 +26,8 @@ _LAZY = {
     "SlideAligner": "aligner",
     "SlideTranslator": "translator",
     "VisionDocBuilder": "docbuilder",
+    "load_config": "config",
+    "run": "pipeline",
 }
 
 __all__ = list(_LAZY)

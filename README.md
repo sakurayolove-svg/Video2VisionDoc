@@ -5,75 +5,9 @@
 
 将 B 站学术/演讲/课程视频一键转换为带时间轴、带 PPT 画面的视觉文档。
 
-> **仓库结构说明（2026-08 更新）**
->
-> 本仓库现有两套实现，均予保留：
->
-> | 结构 | 位置 | 定位 |
-> |------|------|------|
-> | **推荐流水线（v2）** | `video2visiondoc/` 包 | 在真实任务中完整验证过的新结构，**推荐使用** |
-> | 初版实现（v1） | `main.py` + `src/` + `config.yaml` | 早期版本，作为**补充**保留，接口更灵活（多引擎/多模板） |
->
-> 下文“第〇节”介绍推荐流水线；第一节起的内容为初版实现的文档。
-
 ---
 
-## 〇、推荐流水线（video2visiondoc/，v2）
-
-`video2visiondoc/` 是在真实任务中验证过的实现——处理对象：BV13T3x69Eqz
-（35 分钟英文演讲、**无任何字幕**、运行环境仅 4GB 内存 / 2 核 CPU / 无 GPU）。
-实战中踩过的坑和对应的工程设计：
-
-| 环节 | 实战经验 | 对应设计 |
-|------|----------|----------|
-| 下载 | yt-dlp 直连被 B 站反爬拦截（HTTP 412） | 改用 B 站公开 API：`view` 取 cid → `playurl` 取 DASH 流，带 UA+Referer 下载（`downloader.py`） |
-| 转写 | medium/small 模型整段转写 35 分钟音频均被 OOM 杀掉 | **5 分钟分块转写** + VAD 过滤 + int8 量化，每块完成即落盘可断点续跑（`transcriber.py`） |
-| 关键帧 | 纯场景变化检测阈值难调，漏静态页、混入演讲者镜头 | **每 10 秒均匀抽帧 + dHash 感知哈希去重**（256 bit，阈值 40），210 帧 → 27 帧（`keyframes.py`） |
-| 对齐 | 60 秒滑窗配对上下文割裂 | **以每页 PPT 停留时间窗归组转写段**，一页一块（`aligner.py`） |
-| 翻译 | 逐句翻译术语不一致 | **按页翻译**，OpenAI 兼容 API（`LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL`），无 Key 时优雅降级保留原文（`translator.py`） |
-| 文档 | — | 自包含 HTML（图片 base64 内嵌，单文件离线分享），可选 PDF（`docbuilder.py`） |
-
-### 快速开始
-
-```bash
-pip install -r requirements.txt   # 推荐流水线的最小依赖在文件顶部
-# 系统需安装 ffmpeg
-
-# 配置翻译（可选；不配置则保留英文原文）
-export LLM_API_KEY="sk-..."
-export LLM_BASE_URL="https://api.openai.com/v1"   # 任意 OpenAI 兼容端点
-export LLM_MODEL="gpt-4o-mini"
-
-# 一键全流程
-python -m video2visiondoc BV13T3x69Eqz -o ./output
-
-# 改善专有名词识别：传入领域提示词
-python -m video2visiondoc BV13T3x69Eqz \
-    --prompt "Talk on sparse rewards in reinforcement learning, topology"
-
-# 剔除演讲者镜头帧（第 2、3 帧，1 起计数）并输出 PDF
-python -m video2visiondoc BV13T3x69Eqz --exclude-frames 2 3 --pdf
-```
-
-### 模块结构
-
-```
-video2visiondoc/
-├── cli.py           # 六阶段编排：python -m video2visiondoc
-├── downloader.py    # B 站 API 直连下载 → mp4 + 16kHz 单声道 wav
-├── transcriber.py   # faster-whisper 分块转写（防 OOM，断点续跑）
-├── keyframes.py     # 均匀抽帧 + dHash 去重 → slide_XX.jpg
-├── aligner.py       # 按 PPT 页时间窗归组转写段
-├── translator.py    # 按页翻译（OpenAI 兼容 API，术语保护）
-└── docbuilder.py    # 自包含 HTML（+ 可选 PDF）
-```
-
-低内存环境提示：4GB 内存请使用 `--model small` 或更小；
-模型下载慢可设 `HF_ENDPOINT=https://hf-mirror.com HF_HUB_DISABLE_XET=1`。
-
----
-
-## 一、基本信息（初版实现 v1）
+## 一、基本信息
 
 Video2VisionDoc 是一个面向学术视频处理的自动化工具链，核心目标是将 Bilibili 上的演讲、课程、学术报告等长视频，自动提取语音文本、翻译为中文、捕获关键帧（PPT 画面），最终组合成一份可离线浏览、可分享、可检索的视觉文档。
 
@@ -81,6 +15,23 @@ Video2VisionDoc 是一个面向学术视频处理的自动化工具链，核心�
 - 国际学术会议/讲座的语音内容转录与中文可视化整理
 - 在线课程的知识要点结构化归档
 - 技术分享视频的快速概览与检索
+
+### 统一流水线与可切换后端
+
+整个工具是一条六阶段流水线：**下载 → 转写 → 翻译 → 关键帧 → 对齐 → 文档生成**。每个阶段都有两套可切换的实现后端：
+
+| 阶段 | v2 后端（默认，实战验证） | v1 后端（初版，复用保留） |
+|------|--------------------------|--------------------------|
+| 1. 下载 | **API 直连**：`view`→`playurl` 取 DASH 流，抗 B 站反爬(412) | yt-dlp 下载（支持 Cookie/高画质） |
+| 2. 转写 | **分块转写**：5 分钟一块 + VAD + int8，防 OOM，断点续跑 | 整段转写（faster-whisper / whisper / openai-api 多引擎） |
+| 3. 翻译 | **按页翻译**：OpenAI 兼容 API，页内上下文连贯 | 逐段翻译（openai / deep-translator / argos） |
+| 4. 关键帧 | **均匀抽帧 + dHash 去重**：10 秒一帧，256 bit 哈希 | PPT 布局分析 + 场景变化 + 直方图去重 |
+| 5. 对齐 | **按 PPT 页时间窗**：一页 PPT 对应一段讲解 | ±60 秒滑窗配对 |
+| 6. 文档 | **按页自包含 HTML**：一页一截图一段译稿 | 模板生成器（academic/minimal，HTML/MD/PDF） |
+
+- v2 后端位于 `video2visiondoc/` 包，是在真实任务（BV13T3x69Eqz，35 分钟英文演讲、**无字幕**、4GB 内存 CPU 容器）中完整验证过的实现，**为默认推荐**；
+- v1 后端位于 `src/` 目录，全部保留未删，通过 `video2visiondoc/backends.py` 适配层复用；
+- **当配置全部为 v2 默认值时，激活的代码与 v2 实战验证版完全一致**；把任一阶段切到 v1，只有该阶段改走 `src/` 下的对应模块。
 
 ---
 
@@ -101,6 +52,8 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 3. 安装 Python 依赖
 pip install -r requirements.txt
+# v2 默认后端的最小依赖：requests / faster-whisper / Pillow / numpy
+# v1 备选后端的追加依赖见 requirements.txt 下半部分
 
 # 4. 安装系统依赖 ffmpeg
 # Ubuntu/Debian:
@@ -116,34 +69,46 @@ brew install ffmpeg
 
 ### 阶段 2：配置（输入）
 
-**输入**：`config.yaml`（根据你的环境和需求修改）
+**输入**：`config.yaml`（根据你的环境和需求修改；不修改时全部为 v2 默认值）
 
-关键配置项说明：
+后端切换项（每个阶段独立切换）：
 
 ```yaml
-# 语音转录引擎选择
+bilibili:
+  method: "api"              # api(v2默认,抗反爬) / yt-dlp(v1,支持Cookie)
+
 transcription:
-  engine: "faster-whisper"   # 选项: faster-whisper / whisper / openai-api
-  model: "large-v3"          # 选项: tiny / base / small / medium / large-v3
-  device: "cuda"             # cuda 或 cpu
+  mode: "chunked"            # chunked(v2默认,分块防OOM) / standard(v1整段)
+  model: "small"             # 4GB内存验证值; 有GPU可改 large-v3
+  initial_prompt: ""         # 领域提示词, 显著改善专有名词识别
 
-# 翻译引擎选择
 translation:
-  engine: "openai"             # 选项: openai / deep-translator / argos
-  target_language: "zh-CN"
-  openai:
-    api_key: ""                # 建议从环境变量 OPENAI_API_KEY 读取
+  mode: "per_page"           # per_page(v2默认,按页) / per_segment(v1逐段)
+  engine: "llm"              # llm(v2,OpenAI兼容) / openai / deep-translator / argos
 
-# 关键帧提取策略
 frame_extraction:
-  method: "scene_change"       # 选项: scene_change / fixed_interval / ocr_trigger
-  scene_threshold: 0.3       # 场景变化敏感度（0~1，越大越敏感）
+  method: "interval_dhash"   # interval_dhash(v2默认) / ppt_layout(v1布局分析)
 
-# 视觉文档输出
+alignment:
+  method: "per_slide"        # per_slide(v2默认,按页) / window(v1滑窗)
+  exclude_frames: []         # 需剔除的帧序号(1起), 如演讲者镜头
+
 vision_doc:
-  output_format: "html"        # 选项: html / markdown / pdf
-  template: "academic"         # 选项: default / academic / minimal
+  builder: "slide"           # slide(v2默认,按页HTML) / legacy(v1模板)
+  pdf: false                 # v2: 同时输出PDF(需playwright或weasyprint)
 ```
+
+翻译 API（v2 `llm` 引擎，任意 OpenAI 兼容端点）通过环境变量配置：
+
+```bash
+export LLM_API_KEY="sk-..."
+export LLM_BASE_URL="https://api.openai.com/v1"   # 可换 Moonshot/DeepSeek/本地vLLM
+export LLM_MODEL="gpt-4o-mini"
+# 未设置 LLM_API_KEY 时优雅降级：保留英文原文，不中断流水线
+```
+
+低内存环境提示：4GB 内存请保持 `model: "small"` 或更小；Whisper 模型下载慢可设
+`HF_ENDPOINT=https://hf-mirror.com HF_HUB_DISABLE_XET=1`。
 
 **输出**：一份针对你本地环境调优的 `config.yaml`。
 
@@ -151,28 +116,26 @@ vision_doc:
 
 ### 阶段 3：执行处理（输入 → 中间产物）
 
-**输入**：B 站视频 URL 或 BV 号
+**输入**：B 站视频 URL 或 BV 号。两个等价入口：
 
 ```bash
-# 全自动模式（下载 → 转录 → 翻译 → 生成文档）
-python main.py --url BV13T3x69Eqz
+# 入口 A：v2 框架命令行（推荐）
+python -m video2visiondoc BV13T3x69Eqz -o ./output
 
-# 完整参数模式
-python main.py \
-  --url "https://www.bilibili.com/video/BV13T3x69Eqz" \
-  --output ./output \
-  --engine faster-whisper \
-  --model large-v3 \
-  --target-lang zh-CN \
-  --format html
+# 入口 B：v1 兼容入口（参数接口与初版一致）
+python main.py --url BV13T3x69Eqz --output ./output
+
+# 切换 v1 后端示例（命令行覆盖 config.yaml）
+python -m video2visiondoc BV13T3x69Eqz \
+    --download yt-dlp --frames ppt_layout \
+    --translate-mode per_segment --builder legacy
 ```
 
-**中间产物**（输出到 `./output/temp/`）：
-- `*.mp4` —— 下载的原始视频
-- `*.wav` —— 提取的 16kHz 单声道音频
-- `*_transcript.json` —— 带时间戳的语音转录结果
-- `translated_segments.json` —— 翻译后的中文文本（保留英文术语）
-- `frames/` —— 提取的关键帧图片（PPT 画面）
+**中间产物**（输出到 `./output/work/`）：
+- `merged.mp4` / `audio_16k.wav` —— 合并视频与 16kHz 单声道音频
+- `transcript.json`（及 `transcript_partial.json`）—— 带时间戳的转录，分块模式每块落盘可断点续跑
+- `translated.json` —— 按页对齐+翻译结果，同样支持断点续翻
+- `slides/slide_XX.jpg` —— 去重后的 PPT 关键帧
 
 ---
 
@@ -180,16 +143,15 @@ python main.py \
 
 **输出**：`./output/` 目录下的视觉文档
 
-| 格式 | 文件示例 | 查看方式 |
+| 后端 | 文件示例 | 查看方式 |
 |------|----------|----------|
-| HTML | `*_vision_doc.html` | 直接用浏览器打开，图片已内嵌为 base64，可离线浏览 |
-| Markdown | `*_vision_doc.md` | 用任意 Markdown 编辑器或 VS Code 预览 |
-| PDF | `*_vision_doc.pdf` | 用 PDF 阅读器打开，适合打印与分享 |
+| v2 `slide` | `*_视觉文档.html`（+ 可选 `.pdf`） | 单文件自包含（图片 base64 内嵌），浏览器直接打开，可离线分享 |
+| v1 `legacy` | `*_vision_doc.html` / `.md` / `.pdf` | HTML 自包含；Markdown 图片用相对路径便于版本控制 |
 
-HTML 视觉文档的页面结构：
+v2 视觉文档的页面结构：
 - 顶部：视频标题、UP 主、BV 号
-- 主体：按时间轴排列的 Slide 区块，左侧为 PPT 关键帧，右侧为对应的中文讲解文本
-- 术语：英文专业术语自动高亮保留，不强行翻译
+- 主体：每页一节——PPT 关键帧截图（标注视频时间段）+ 该页期间讲解内容的中文译稿
+- 术语：英文专业术语保留不译（`preserve_terms` 可配）
 
 ---
 
@@ -197,76 +159,123 @@ HTML 视觉文档的页面结构：
 
 ```bash
 # 视频已有 B 站 AI 字幕：跳过语音转录，直接翻译
-python main.py --url BV13T3x69Eqz --use-subtitle
+python -m video2visiondoc BV13T3x69Eqz --use-subtitle
 
-# 已有本地音频：跳过下载
-python main.py --url BV13T3x69Eqz --skip-download --audio ./audio.wav
+# 已有本地音视频：跳过下载
+python -m video2visiondoc BV13T3x69Eqz --skip-download \
+    --video ./video.mp4 --audio ./audio.wav
 
-# 已有本地视频：跳过下载，同时提取帧
-python main.py --url BV13T3x69Eqz --skip-download --video ./video.mp4 --audio ./audio.wav
+# 已有转录：跳过转写
+python -m video2visiondoc BV13T3x69Eqz --skip-download \
+    --video ./video.mp4 --transcript ./transcript.json
+
+# 剔除开场的演讲者镜头帧（第 2、3 帧，1 起计数）
+python -m video2visiondoc BV13T3x69Eqz --exclude-frames 2 3
+
+# 领域提示词改善识别 + 输出 PDF
+python -m video2visiondoc BV13T3x69Eqz \
+    --prompt "Talk on sparse rewards in reinforcement learning" --pdf
 
 # 纯文本模式：不提取关键帧
-python main.py --url BV13T3x69Eqz --skip-frames
-
-# 生成 PDF
-python main.py --url BV13T3x69Eqz --format pdf
+python -m video2visiondoc BV13T3x69Eqz --skip-frames
 ```
 
 ---
 
 ## 三、实现功能
 
-### 3.1 B 站视频下载与字幕获取（`src/extractors/bilibili.py`）
+### 3.1 B 站视频下载与字幕获取
 
-- **BV 号解析**：支持 `BVxxxxx`、`bilibili.com/video/BVxxxxx`、`b23.tv/BVxxxxx` 三种格式自动识别
-- **视频信息获取**：通过 B 站公开 API (`x/web-interface/view`) 获取标题、UP 主、时长、CID
-- **字幕智能获取**：通过 `x/player/wbi/v2` API 优先获取 B 站已有字幕（人工字幕 / AI 生成字幕），支持多语言选择（优先英文、中文）
-- **视频下载**：调用 `yt-dlp` 下载最高可用画质，自动提取音频为 16kHz 单声道 WAV（Whisper 最优输入格式）
-- **Cookie 支持**：可通过 `config.yaml` 配置 Cookie 文件，支持大会员高画质与付费内容
+**v2 后端（默认）：API 直连**（`video2visiondoc/downloader.py`）
 
-### 3.2 语音转文字（`src/processors/transcriber.py`）
+- **BV 号解析**：支持 `BVxxxxx`、`bilibili.com/video/BVxxxxx`、`b23.tv/BVxxxxx` 及 `list/watchlater?bvid=` 等带参数 URL
+- **两步 API**：`x/web-interface/view` 取标题/时长/cid/UP 主 → `x/player/playurl` 取 DASH 音视频流（未登录最高 480P，对 PPT 画面与语音识别足够）
+- **抗反爬**：带 UA + Referer 直接下载流文件，规避 yt-dlp 直连常见的 HTTP 412
+- **ffmpeg 合并**：video.m4s + audio.m4s → mp4，并提取 16kHz 单声道 WAV（Whisper 最优输入）
+
+**v1 后端（备选）：yt-dlp**（`src/extractors/bilibili.py`）
+
+- 支持 Cookie 文件（大会员高画质/付费内容）、并发分片、更多画质选择
+- **字幕获取**：`x/player/wbi/v2` 获取 B 站人工/AI 字幕（两个后端都可用，`--use-subtitle`）
+
+### 3.2 语音转文字
+
+**v2 后端（默认）：分块转写**（`video2visiondoc/transcriber.py`）
+
+实战背景：4GB 内存容器中，medium/small 模型整段转写 35 分钟音频均被 OOM 杀掉。
+
+- ffmpeg `-c copy` 把音频切成 5 分钟一块，逐块转写，内存占用恒定
+- VAD 过滤静音提速；int8 量化；`initial_prompt` 领域提示词改善专有名词
+- 每块完成即落盘 `transcript_partial.json`，崩溃后可断点续跑
+- 时间戳自动加块偏移，拼成全局时间轴
+
+**v1 后端（备选）：整段多引擎**（`src/processors/transcriber.py`）
 
 | 引擎 | 运行方式 | 特点 | 推荐场景 |
 |------|----------|------|----------|
-| `faster-whisper` | 本地，支持 GPU (CUDA) | CTranslate2 加速，速度最快，支持 large-v3 | 有 NVIDIA GPU 的本地/服务器环境 |
-| `whisper` | 本地，CPU/GPU | OpenAI 官方纯 Python 实现，兼容性好 | 通用本地环境 |
-| `openai-api` | 云端 API | 无需本地模型，即开即用 | 无 GPU、追求便捷 |
+| `faster-whisper` | 本地，支持 GPU (CUDA) | CTranslate2 加速，支持 large-v3 | 有 NVIDIA GPU 的环境 |
+| `whisper` | 本地，CPU/GPU | OpenAI 官方实现，兼容性好 | 通用本地环境 |
+| `openai-api` | 云端 API | 无需本地模型 | 无 GPU、追求便捷 |
 
-- 输出格式支持：`json`（推荐，含完整时间戳）、`srt`、`vtt`、`txt`
-- 支持词级时间戳（`word_timestamps`）
-- 内置 `use_bili_subtitle()` 方法，可直接复用 B 站已有字幕，跳过本地转录
+- 输出格式：`json`（含完整时间戳）/ `srt` / `vtt` / `txt`，支持词级时间戳
+- `use_bili_subtitle()` 可直接复用 B 站已有字幕，跳过本地转录
 
-### 3.3 文本翻译（`src/processors/translator.py`）
+### 3.3 文本翻译
+
+**v2 后端（默认）：按页翻译**（`video2visiondoc/translator.py`）
+
+- 以"一页 PPT 的完整讲解"为粒度调用 LLM，术语与指代在页内一致（优于逐句翻译）
+- 任意 OpenAI 兼容端点（`LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`），不写死供应商
+- 无 API Key 时优雅降级保留原文；每页翻译完即落盘，支持断点续翻
+- `preserve_terms` 术语保护列表注入 prompt
+
+**v1 后端（备选）：逐段三引擎**（`src/processors/translator.py`）
 
 | 引擎 | 成本 | 质量 | 特点 |
 |------|------|------|------|
-| `openai` | API 费用 | ★★★★★ | GPT-4o-mini / GPT-4o，上下文感知，支持术语保护列表 |
+| `openai` | API 费用 | ★★★★★ | GPT-4o-mini / GPT-4o，分批 30 段防 token 超限 |
 | `deep-translator` | 免费 | ★★★☆☆ | 基于 Google Translate，无需 API Key |
-| `argos` | 免费 | ★★☆☆☆ | 完全离线，隐私安全，无需联网 |
+| `argos` | 免费 | ★★☆☆☆ | 完全离线，隐私安全 |
 
-- **术语保护**：通过 `config.yaml` 中的 `preserve_terms` 列表，自动保留英文专业术语不翻译（如 `sparse reward`、`topological quantum field theory`、`persistent homology` 等）
-- **分批处理**：OpenAI 模式下自动按 30 段字幕分批，避免单请求 token 超限
-- **双语输出**：可选保留原文与译文对照
+### 3.4 关键帧 / PPT 画面提取
 
-### 3.4 关键帧 / PPT 画面提取（`src/extractors/frame_extractor.py`）
+**v2 后端（默认）：均匀抽帧 + dHash 去重**（`video2visiondoc/keyframes.py`）
 
-| 方法 | 原理 | 适用场景 |
-|------|------|----------|
-| `scene_change` | SSIM 结构相似度检测画面突变 | PPT 翻页、演讲者切换幻灯片 |
-| `fixed_interval` | 固定时间间隔截图 | 画面变化平缓、需要均匀采样 |
-| `ocr_trigger` | OCR 文字区域变化触发截图 | 文字驱动型视频（如代码演示） |
+实战背景：纯场景变化检测阈值难调——高了漏版式相近的翻页，低了混入演讲者镜头，静态封面可能完全漏掉。
 
-- 自动降采样加速计算（320×180 灰度图做 SSIM）
-- 最小间隔过滤（`min_interval`），避免过度密集截图
-- 输出尺寸控制（`max_width`），控制单张图片体积
+- 每 10 秒均匀抽帧（`fps=1/10`），保证不遗漏任何页面
+- dHash（16×16，256 bit）与上一个"保留帧"比较汉明距离，超过阈值（默认 40）才保留——避免与相邻帧比较时的累积漂移
+- 实测：35 分钟视频 210 帧 → 27 帧，演讲者镜头与 PPT 自然区分
 
-### 3.5 视觉文档生成（`src/generators/vision_doc.py`）
+**v1 后端（备选）：PPT 布局分析**（`src/extractors/frame_extractor.py`）
 
-- **时间对齐**：将关键帧与最近 60 秒窗口内的字幕片段自动配对
-- **HTML 自包含**：所有图片内嵌为 base64 Data URI，单个 `.html` 文件即可离线浏览、邮件发送、网盘分享
-- **Markdown 输出**：图片使用相对路径，便于版本控制与二次编辑
-- **PDF 输出**：基于 WeasyPrint 将 HTML 渲染为 PDF，适合打印与学术归档
-- **学术模板**：深色主题、代码高亮、MathJax 公式渲染、术语高亮样式
+- 扫描前 60 秒，按文字密度/结构化布局/边缘密度/对比度/背景均匀性计算 PPT 布局分数，定位 PPT 真正开始位置（不假设"开头=第一页"）
+- 场景变化 + 固定间隔双路采样，PPT 分数过滤非 PPT 帧，直方图去重
+- 可选 VLM 检测（`src/extractors/vlm_ppt_detector.py`）
+
+### 3.5 转写文本与画面对齐
+
+**v2 后端（默认）：按 PPT 页时间窗**（`video2visiondoc/aligner.py`）
+
+- 每页 PPT 的停留时间段 `[t_i, t_{i+1})` 内的全部转写段归为该页——翻译粒度与文档结构天然一致
+- `exclude_frames` 可剔除演讲者纯镜头帧，其时间窗并入前一页
+
+**v1 后端（备选）：±60 秒滑窗**（`video2visiondoc/aligner.py` 的 `align_window`）
+
+- 每帧配对前后 60 秒内的字幕，与初版 `VisionDocGenerator` 语义一致
+
+### 3.6 视觉文档生成
+
+**v2 后端（默认）：按页自包含 HTML**（`video2visiondoc/docbuilder.py`）
+
+- 每页一节：页码 + 视频时间段 + PPT 截图 + 该页中文译稿
+- 图片全部内嵌为 base64 Data URI，单文件离线浏览/邮件/网盘分享
+- `--pdf` 时经 Playwright（或 WeasyPrint）输出 A4 PDF
+
+**v1 后端（备选）：模板生成器**（`src/generators/vision_doc.py`）
+
+- academic / minimal 模板，HTML / Markdown / PDF 三格式
+- 深色主题、代码高亮、MathJax 公式渲染、术语高亮
 
 ---
 
@@ -276,10 +285,10 @@ python main.py --url BV13T3x69Eqz --format pdf
 
 | 项目 | 链接 | 用途 |
 |------|------|------|
-| yt-dlp | https://github.com/yt-dlp/yt-dlp | B 站视频下载 |
+| yt-dlp | https://github.com/yt-dlp/yt-dlp | B 站视频下载（v1 后端） |
 | faster-whisper | https://github.com/SYSTRAN/faster-whisper | 本地 GPU 加速语音转录 |
-| OpenAI Whisper | https://github.com/openai/whisper | 官方语音转录模型 |
-| deep-translator | https://github.com/nidhaloff/deep-translator | 免费翻译引擎 |
+| OpenAI Whisper | https://github.com/openai/whisper | 官方语音转录模型（v1 后端） |
+| deep-translator | https://github.com/nidhaloff/deep-translator | 免费翻译引擎（v1 后端） |
 | WeasyPrint | https://github.com/Kozea/WeasyPrint | HTML → PDF 渲染 |
 
 ### 学术参考
@@ -301,7 +310,34 @@ python main.py --url BV13T3x69Eqz --format pdf
 
 ## 真实案例
 
-### BV13T3x69Eqz — Sergei Gukov: 面向长时程稀疏奖励任务的人工智能工具
+### BV13T3x69Eqz — Sergei Gukov: 面向长时程稀疏奖励任务的人工智能工具（v2 后端）
+
+- **视频时长**: 35 分钟 (2098s)，无任何字幕
+- **转写**: small 模型 5 分钟分块，366 段（4GB 内存 CPU 容器稳定跑完）
+- **提取帧数**: 210 帧均匀采样 → dHash 去重后 27 帧（剔除 2 个演讲者镜头后 25 页）
+- **对齐**: 按 PPT 页时间窗，第 2 页（稀疏奖励/长时程）窗口 30–240s 共 497 词
+- **输出**: 按页自包含 HTML 视觉文档（25 页 PPT + 中文译稿）
+
+**v2 抽帧算法** (`video2visiondoc/keyframes.py`):
+```python
+# 1. ffmpeg fps=1/10 均匀抽帧，不漏静态页
+# 2. dHash(16×16) 与上一个"保留帧"比汉明距离 > 40 才保留
+#    —— 与相邻帧比较会在画面缓变时累积漂移，与保留帧比较不会
+slides = KeyframeExtractor(sample_interval=10, hash_threshold=40)
+slides = slides.extract(video_path, out_dir)   # 210 帧 → 27 帧
+```
+
+**v2 分块转写** (`video2visiondoc/transcriber.py`):
+```python
+# 整段转写 35 分钟音频在 4GB 容器中必 OOM（medium/small 均验证）
+# 切成 5 分钟一块逐块转写，每块落盘 transcript_partial.json
+segments = ChunkedTranscriber(
+    model_size="small", chunk_seconds=300,
+    initial_prompt="Talk on sparse rewards in RL, topology.",
+).transcribe(audio_path, workdir)
+```
+
+### BV13T3x69Eqz — Sergei Gukov（v1 后端：PPT布局分析）
 
 - **视频时长**: 35 分钟 (2098s)
 - **PPT定位**: 算法扫描前60秒，基于布局分析找到PPT真正开始位置
@@ -343,7 +379,7 @@ frame_extraction:
 
 **如果算法误判**：降低 `ppt_score_threshold` 到 40 或 30，或改用VLM检测（`use_vlm: true`）。
 
-### BV13T3x69Eqz — Sergei Gukov: 面向长时程稀疏奖励任务的人工智能工具
+### BV13T3x69Eqz — Sergei Gukov（v1 后端：切片场景变化）
 
 - **视频时长**: 35 分钟 (2098s)
 - **提取帧数**: 27 帧（切片场景变化检测，3秒采样间隔）

@@ -49,15 +49,39 @@ class SlideAligner:
         for i, slide in enumerate(kept):
             t_start = slide["time"]
             t_end = kept[i + 1]["time"] if i + 1 < n else float("inf")
-            text = " ".join(
-                seg["text"] for seg in segments
-                if t_start <= seg["start"] < t_end
-            ).strip()
+            window = [seg for seg in segments
+                      if t_start <= seg["start"] < t_end]
             blocks.append({
                 "index": i + 1,
                 "image": slide["image"],
                 "t_start": t_start,
                 "t_end": t_end if t_end != float("inf") else None,
-                "text": text,
+                "text": " ".join(seg["text"] for seg in window).strip(),
+                # 若段已被逐段翻译（v1 per_segment 模式），译文随窗带走
+                "text_zh": " ".join(seg.get("text_zh", seg["text"])
+                                    for seg in window).strip(),
             })
         return blocks
+
+
+def align_window(slides: list, segments: list, window_seconds: int = 60) -> list:
+    """
+    v1 风格对齐（备选后端）：每帧配对 ±window 秒内的转写段。
+    与 src/generators/vision_doc.py 的 _align_frames_with_segments 语义一致，
+    归一化为 v2 的 blocks 结构。
+    """
+    blocks = []
+    for i, slide in enumerate(slides):
+        t = slide["time"]
+        window = [seg for seg in segments
+                  if abs(seg.get("start", 0) - t) < window_seconds]
+        blocks.append({
+            "index": i + 1,
+            "image": slide["image"],
+            "t_start": t,
+            "t_end": None,
+            "text": " ".join(seg["text"] for seg in window).strip(),
+            "text_zh": " ".join(seg.get("text_zh", seg["text"])
+                                for seg in window).strip(),
+        })
+    return blocks
