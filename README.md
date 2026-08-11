@@ -330,6 +330,7 @@ python -m video2visiondoc BV13T3x69Eqz --skip-frames
 - **提取帧数**: 210 帧均匀采样 → dHash 去重后 27 帧（剔除 2 个演讲者镜头后 25 页）
 - **对齐**: 按 PPT 页时间窗，第 2 页（稀疏奖励/长时程）窗口 30–240s 共 497 词
 - **输出**: 按页自包含 HTML 视觉文档（25 页 PPT + 中文译稿）
+- **示例文件**: [`examples/gukov_vision_doc.pdf`](examples/gukov_vision_doc.pdf)（工具直接生成的 PDF，50 帧时间戳对齐版）、[`examples/gukov_视觉文档_27页.pdf`](examples/gukov_视觉文档_27页.pdf)（27 页精排版视觉文档）、[`examples/gukov_vision_doc.html`](examples/gukov_vision_doc.html)、[`examples/example_vision_doc.html`](examples/example_vision_doc.html)
 
 **`interval_dhash` 抽帧算法** (`video2visiondoc/keyframes.py`):
 ```python
