@@ -10,7 +10,8 @@ video2visiondoc 框架（pipeline.run）。各阶段模块由 config.yaml
     bilibili.method:          api（默认）/ ytdlp
     transcription.engine:     chunked（默认）/ faster-whisper / whisper / openai-api
     translation.engine:       llm（默认，按页）/ openai / deep-translator / argos（逐段）
-    frame_extraction.method:  interval_dhash（默认）/ ppt_layout
+    frame_extraction.method:  interval_dhash（默认）/ ppt_layout /
+                              scene_change / fixed_interval / ocr_trigger
     alignment.method:         per_slide（默认）/ window
     vision_doc.builder:       slide（默认）/ legacy
 
@@ -91,7 +92,7 @@ def parse_args():
                         help="跳过关键帧提取")
     parser.add_argument("--frame-method",
                         choices=["scene_change", "fixed_interval", "ocr_trigger"],
-                        help="关键帧提取方法（布局分析模块）")
+                        help="关键帧提取方法（经典三方法，与 ppt_layout 同级）")
 
     # 文档生成控制
     parser.add_argument("--format", "-f",
@@ -130,7 +131,8 @@ def main():
         # 单开关同级切换：选这三个引擎即自动为逐段翻译
         config["translation"]["engine"] = args.translator
     if args.frame_method:
-        config["frame_extraction"]["method"] = "ppt_layout"
+        # 单开关同级切换：scene_change / fixed_interval / ocr_trigger 直接选
+        config["frame_extraction"]["method"] = args.frame_method
     if args.format:
         config["vision_doc"]["output_format"] = args.format
         if args.format in ("markdown", "pdf"):

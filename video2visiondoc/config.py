@@ -11,7 +11,8 @@ config.py —— 统一配置加载（内置默认值 + config.yaml 覆盖）
     bilibili.method:          api（默认） | ytdlp
     transcription.engine:     chunked（默认） | faster-whisper | whisper | openai-api
     translation.engine:       llm（默认，按页） | openai | deep-translator | argos（逐段）
-    frame_extraction.method:  interval_dhash（默认） | ppt_layout（布局分析）
+    frame_extraction.method:  interval_dhash（默认） | ppt_layout（布局分析） |
+                              scene_change（SSIM） | fixed_interval | ocr_trigger
     alignment.method:         per_slide（默认） | window（±60s 滑窗）
     vision_doc.builder:       slide（默认） | legacy（模板生成器）
 """
@@ -41,10 +42,12 @@ DEFAULT_CONFIG = {
         "initial_prompt": "",
     },
     "frame_extraction": {
-        "method": "interval_dhash",  # interval_dhash（默认）; ppt_layout=布局分析
+        "method": "interval_dhash",  # interval_dhash（默认）; ppt_layout=布局分析;
+                                  # scene_change=SSIM场景变化; fixed_interval=固定间隔;
+                                  # ocr_trigger=OCR触发(需pytesseract)
         "sample_interval": 10,
         "hash_threshold": 40,
-        # ppt_layout 模块参数（切换后生效）
+        # ppt_layout / scene_change / fixed_interval / ocr_trigger 模块参数（切换后生效）
         "scene_threshold": 0.12,
         "interval": 25,
         "max_width": 1280,

@@ -25,11 +25,11 @@ Video2VisionDoc 是一个面向学术视频处理的自动化工具链，核心�
 | 1. 下载 | `bilibili.method` | **`api`**（API 直连抗反爬） · `ytdlp`（Cookie/高画质） |
 | 2. 转写 | `transcription.engine` | **`chunked`**（分块防 OOM） · `faster-whisper` · `whisper` · `openai-api` |
 | 3. 翻译 | `translation.engine` | **`llm`**（按页，OpenAI 兼容） · `openai` · `deep-translator` · `argos`（逐段） |
-| 4. 关键帧 | `frame_extraction.method` | **`interval_dhash`**（均匀抽帧+哈希去重） · `ppt_layout`（布局分析） |
+| 4. 关键帧 | `frame_extraction.method` | **`interval_dhash`**（均匀抽帧+哈希去重） · `ppt_layout`（布局分析） · `scene_change`（SSIM 场景变化） · `fixed_interval`（固定间隔） · `ocr_trigger`（OCR 触发） |
 | 5. 对齐 | `alignment.method` | **`per_slide`**（按 PPT 页时间窗） · `window`（±60s 滑窗） |
 | 6. 文档 | `vision_doc.builder` | **`slide`**（按页自包含 HTML） · `legacy`（模板，HTML/MD/PDF） |
 
-- 所有模块实现都在 `video2visiondoc/` 包内：默认的实战验证实现（`downloader.py`、`transcriber.py`、`keyframes.py`、`aligner.py`、`translator.py`、`docbuilder.py`）与复制自 `src/` 初版实现的备选模块（`downloader_ytdlp.py`、`transcriber_standard.py`、`translator_engines.py`、`keyframes_ppt_layout.py`、`vlm_ppt_detector.py`、`docbuilder_legacy.py`）**同级并列**，由 `backends.py` 注册表统一调度；
+- 所有模块实现都在 `video2visiondoc/` 包内：默认的实战验证实现（`downloader.py`、`transcriber.py`、`keyframes.py`、`aligner.py`、`translator.py`、`docbuilder.py`）与复制自 `src/` 及初版提交的备选模块（`downloader_ytdlp.py`、`transcriber_standard.py`、`translator_engines.py`、`keyframes_ppt_layout.py`、`keyframes_methods.py`、`vlm_ppt_detector.py`、`docbuilder_legacy.py`）**同级并列**，由 `backends.py` 注册表统一调度；
 - 默认模块组合的验证环境：BV13T3x69Eqz（35 分钟英文演讲、**无字幕**、4GB 内存 CPU 容器），**为默认推荐**；
 - 初版原始代码保留在 `src/` 目录未作修改（作为历史版本存档）；
 - **当配置全部为默认值时，激活的代码与实战验证过的实现完全一致**。
@@ -90,6 +90,7 @@ translation:
 
 frame_extraction:
   method: "interval_dhash"   # interval_dhash(默认) / ppt_layout(布局分析)
+                             # / scene_change(SSIM) / fixed_interval / ocr_trigger
 
 alignment:
   method: "per_slide"        # per_slide(默认,按页) / window(滑窗)
@@ -254,6 +255,16 @@ python -m video2visiondoc BV13T3x69Eqz --skip-frames
 - 扫描前 60 秒，按文字密度/结构化布局/边缘密度/对比度/背景均匀性计算 PPT 布局分数，定位 PPT 真正开始位置（不假设"开头=第一页"）
 - 场景变化 + 固定间隔双路采样，PPT 分数过滤非 PPT 帧，直方图去重
 - 可选 VLM 检测（`video2visiondoc/vlm_ppt_detector.py`）
+
+**`scene_change` / `fixed_interval` / `ocr_trigger`（备选）：经典三方法**（`video2visiondoc/keyframes_methods.py`，复制自初版提交的 `src/extractors/frame_extractor.py`）
+
+| 方法 | 原理 | 推荐场景 |
+|------|------|----------|
+| `scene_change` | SSIM 结构相似度检测画面突变（阈值 `scene_threshold`，建议 0.3） | PPT 翻页、演讲者切换幻灯片 |
+| `fixed_interval` | 固定时间间隔截图（间隔 `interval` 秒，建议 5） | 画面变化平缓、需要均匀采样 |
+| `ocr_trigger` | OCR 文字区域变化触发截图（需 pytesseract + tesseract） | 文字驱动型视频（如代码演示） |
+
+- 均支持 `min_interval` 最小帧间隔防密集、`max_width` 输出宽度、`format` 输出格式
 
 ### 3.5 转写文本与画面对齐
 

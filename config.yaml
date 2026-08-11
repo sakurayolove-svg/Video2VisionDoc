@@ -105,19 +105,22 @@ alignment:
 
 # ========== 关键帧/PPT提取配置 ==========
 frame_extraction:
-  # 模块选择: interval_dhash(均匀抽帧+dHash去重, 默认)
-  #           ppt_layout(PPT布局分析+场景变化+直方图去重)
-  #           scene_change / fixed_interval / ocr_trigger(均归入 ppt_layout 模块)
+  # 模块选择（单开关，同级并列）:
+  #   interval_dhash  均匀抽帧+dHash去重(默认)
+  #   ppt_layout      PPT布局分析+场景变化+直方图去重
+  #   scene_change    场景变化(SSIM结构相似度)
+  #   fixed_interval  固定间隔截图
+  #   ocr_trigger     OCR文字变化触发(需pytesseract+tesseract)
   method: "interval_dhash"
   # interval_dhash 参数: 抽帧间隔(秒)
   sample_interval: 10
   # interval_dhash 参数: dHash 汉明距离去重阈值(满分256)
   hash_threshold: 40
-  # ppt_layout 参数: 场景变化阈值(0-1, 越大越敏感)
+  # 场景变化阈值(ppt_layout: ffmpeg场景分数; scene_change: SSIM差异度, 建议0.3)
   scene_threshold: 0.12
-  # ppt_layout 参数: 固定间隔保底(秒)
+  # 间隔秒数(ppt_layout: 保底间隔, 建议25; fixed_interval: 截图间隔, 建议5)
   interval: 25
-  # ppt_layout 参数: 最小帧间隔(秒)
+  # 最小帧间隔(秒, scene_change/ocr_trigger 防密集)
   min_interval: 2
   # 输出格式: jpg, png
   format: "jpg"

@@ -8,7 +8,8 @@ pipeline.py —— 统一流水线编排
     1. 下载   bilibili.method               api / ytdlp
     2. 转写   transcription.engine          chunked / faster-whisper / whisper / openai-api
     3. 翻译   translation.engine            llm（按页） / openai / deep-translator / argos（逐段）
-    4. 关键帧 frame_extraction.method       interval_dhash / ppt_layout
+    4. 关键帧 frame_extraction.method       interval_dhash / ppt_layout /
+                                          scene_change / fixed_interval / ocr_trigger
     5. 对齐   alignment.method              per_slide / window
     6. 文档   vision_doc.builder            slide / legacy
 

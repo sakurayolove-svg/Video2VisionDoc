@@ -6,8 +6,8 @@ backends.py —— 后端注册表（所有实现同级并列，单开关切换�
     - downloader / transcriber / keyframes / aligner /
       translator / docbuilder（默认模块，真实任务验证）
     - downloader_ytdlp / transcriber_standard / keyframes_ppt_layout /
-      vlm_ppt_detector / translator_engines / docbuilder_legacy
-      （复制自 src/ 初版实现的同级备选模块）
+      keyframes_methods / vlm_ppt_detector / translator_engines /
+      docbuilder_legacy（复制自 src/ 及初版提交的同级备选模块）
 
 每个阶段只有一个选择开关，选 whisper 之类的细粒度引擎不需要
 再额外切换任何其他开关：
@@ -15,7 +15,8 @@ backends.py —— 后端注册表（所有实现同级并列，单开关切换�
     bilibili.method:          api（默认） | ytdlp
     transcription.engine:     chunked（默认） | faster-whisper | whisper | openai-api
     translation.engine:       llm（默认，按页） | openai | deep-translator | argos
-    frame_extraction.method:  interval_dhash（默认） | ppt_layout
+    frame_extraction.method:  interval_dhash（默认） | ppt_layout |
+                              scene_change | fixed_interval | ocr_trigger
     alignment.method:         per_slide（默认） | window
     vision_doc.builder:       slide（默认） | legacy
 
@@ -140,6 +141,14 @@ def extract_slides(video_path: str, out_dir: str, config: dict) -> list:
     if method == "ppt_layout":
         print("  后端: PPT 布局分析")
         from .keyframes_ppt_layout import FrameExtractor
+        frames = FrameExtractor(config).extract_frames(video_path, out_dir)
+        return [{"image": f["path"], "time": f["timestamp"]} for f in frames]
+    if method in ("scene_change", "fixed_interval", "ocr_trigger"):
+        label = {"scene_change": "场景变化（SSIM）",
+                 "fixed_interval": "固定间隔",
+                 "ocr_trigger": "OCR 触发"}[method]
+        print(f"  后端: {label}")
+        from .keyframes_methods import FrameExtractor
         frames = FrameExtractor(config).extract_frames(video_path, out_dir)
         return [{"image": f["path"], "time": f["timestamp"]} for f in frames]
     print("  后端: 均匀抽帧 + dHash 去重（默认）")

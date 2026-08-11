@@ -64,8 +64,12 @@ def parse_args(argv=None):
                    choices=["llm", "openai", "deep-translator", "argos"],
                    default=None,
                    help="翻译引擎：llm=按页(默认) / openai / deep-translator / argos=逐段")
-    p.add_argument("--frames", choices=["interval_dhash", "ppt_layout"], default=None,
-                   help="抽帧模块：interval_dhash(默认) / ppt_layout=布局分析")
+    p.add_argument("--frames",
+                   choices=["interval_dhash", "ppt_layout", "scene_change",
+                            "fixed_interval", "ocr_trigger"],
+                   default=None,
+                   help="抽帧模块：interval_dhash(默认) / ppt_layout=布局分析 / "
+                        "scene_change=SSIM场景变化 / fixed_interval=固定间隔 / ocr_trigger=OCR触发")
     p.add_argument("--align", choices=["per_slide", "window"], default=None,
                    help="对齐方式：per_slide=按页(默认) / window=滑窗")
     p.add_argument("--builder", choices=["slide", "legacy"], default=None,
