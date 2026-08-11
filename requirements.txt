@@ -1,7 +1,23 @@
 # Video2VisionDoc 依赖
+# ---------------------------------------------------------------
+# 推荐流水线 video2visiondoc/ 的最小依赖（按使用阶段标注）：
+#   下载:    requests + 系统 ffmpeg
+#   转写:    faster-whisper
+#   关键帧:  Pillow + numpy + 系统 ffmpeg
+#   翻译:    requests（OpenAI 兼容 API）
+#   文档:    标准库（可选 playwright 输出 PDF）
+# ---------------------------------------------------------------
+requests>=2.31.0
+faster-whisper>=1.0.0
+Pillow>=10.2.0
+numpy>=1.26.0
+
+# 可选：PDF 输出（推荐流水线 --pdf）
+# playwright>=1.40.0
+
+# ===== 以下为初版结构（main.py + src/）的补充依赖 =====
 # 视频下载
 yt-dlp>=2024.12.0
-requests>=2.31.0
 
 # 音频处理
 ffmpeg-python>=0.2.0
@@ -9,7 +25,6 @@ pydub>=0.25.1
 
 # 语音转文字
 openai-whisper>=20231117
-faster-whisper>=1.0.0
 
 # 翻译
 deep-translator>=1.11.4

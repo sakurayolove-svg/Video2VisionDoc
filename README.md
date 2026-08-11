@@ -5,9 +5,75 @@
 
 将 B 站学术/演讲/课程视频一键转换为带时间轴、带 PPT 画面的视觉文档。
 
+> **仓库结构说明（2026-08 更新）**
+>
+> 本仓库现有两套实现，均予保留：
+>
+> | 结构 | 位置 | 定位 |
+> |------|------|------|
+> | **推荐流水线（v2）** | `video2visiondoc/` 包 | 在真实任务中完整验证过的新结构，**推荐使用** |
+> | 初版实现（v1） | `main.py` + `src/` + `config.yaml` | 早期版本，作为**补充**保留，接口更灵活（多引擎/多模板） |
+>
+> 下文“第〇节”介绍推荐流水线；第一节起的内容为初版实现的文档。
+
 ---
 
-## 一、基本信息
+## 〇、推荐流水线（video2visiondoc/，v2）
+
+`video2visiondoc/` 是在真实任务中验证过的实现——处理对象：BV13T3x69Eqz
+（35 分钟英文演讲、**无任何字幕**、运行环境仅 4GB 内存 / 2 核 CPU / 无 GPU）。
+实战中踩过的坑和对应的工程设计：
+
+| 环节 | 实战经验 | 对应设计 |
+|------|----------|----------|
+| 下载 | yt-dlp 直连被 B 站反爬拦截（HTTP 412） | 改用 B 站公开 API：`view` 取 cid → `playurl` 取 DASH 流，带 UA+Referer 下载（`downloader.py`） |
+| 转写 | medium/small 模型整段转写 35 分钟音频均被 OOM 杀掉 | **5 分钟分块转写** + VAD 过滤 + int8 量化，每块完成即落盘可断点续跑（`transcriber.py`） |
+| 关键帧 | 纯场景变化检测阈值难调，漏静态页、混入演讲者镜头 | **每 10 秒均匀抽帧 + dHash 感知哈希去重**（256 bit，阈值 40），210 帧 → 27 帧（`keyframes.py`） |
+| 对齐 | 60 秒滑窗配对上下文割裂 | **以每页 PPT 停留时间窗归组转写段**，一页一块（`aligner.py`） |
+| 翻译 | 逐句翻译术语不一致 | **按页翻译**，OpenAI 兼容 API（`LLM_API_KEY`/`LLM_BASE_URL`/`LLM_MODEL`），无 Key 时优雅降级保留原文（`translator.py`） |
+| 文档 | — | 自包含 HTML（图片 base64 内嵌，单文件离线分享），可选 PDF（`docbuilder.py`） |
+
+### 快速开始
+
+```bash
+pip install -r requirements.txt   # 推荐流水线的最小依赖在文件顶部
+# 系统需安装 ffmpeg
+
+# 配置翻译（可选；不配置则保留英文原文）
+export LLM_API_KEY="sk-..."
+export LLM_BASE_URL="https://api.openai.com/v1"   # 任意 OpenAI 兼容端点
+export LLM_MODEL="gpt-4o-mini"
+
+# 一键全流程
+python -m video2visiondoc BV13T3x69Eqz -o ./output
+
+# 改善专有名词识别：传入领域提示词
+python -m video2visiondoc BV13T3x69Eqz \
+    --prompt "Talk on sparse rewards in reinforcement learning, topology"
+
+# 剔除演讲者镜头帧（第 2、3 帧，1 起计数）并输出 PDF
+python -m video2visiondoc BV13T3x69Eqz --exclude-frames 2 3 --pdf
+```
+
+### 模块结构
+
+```
+video2visiondoc/
+├── cli.py           # 六阶段编排：python -m video2visiondoc
+├── downloader.py    # B 站 API 直连下载 → mp4 + 16kHz 单声道 wav
+├── transcriber.py   # faster-whisper 分块转写（防 OOM，断点续跑）
+├── keyframes.py     # 均匀抽帧 + dHash 去重 → slide_XX.jpg
+├── aligner.py       # 按 PPT 页时间窗归组转写段
+├── translator.py    # 按页翻译（OpenAI 兼容 API，术语保护）
+└── docbuilder.py    # 自包含 HTML（+ 可选 PDF）
+```
+
+低内存环境提示：4GB 内存请使用 `--model small` 或更小；
+模型下载慢可设 `HF_ENDPOINT=https://hf-mirror.com HF_HUB_DISABLE_XET=1`。
+
+---
+
+## 一、基本信息（初版实现 v1）
 
 Video2VisionDoc 是一个面向学术视频处理的自动化工具链，核心目标是将 Bilibili 上的演讲、课程、学术报告等长视频，自动提取语音文本、翻译为中文、捕获关键帧（PPT 画面），最终组合成一份可离线浏览、可分享、可检索的视觉文档。
 
